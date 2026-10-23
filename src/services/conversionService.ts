@@ -24,7 +24,6 @@ export async function executeFileConversion(request: ConversionRequest): Promise
         webp: 'image/webp',
       };
 
-      const targetMime = mimeTypeMap[targetExt] || 'image/png';
       const img = new Image();
       const objectUrl = URL.createObjectURL(file);
 
@@ -40,13 +39,39 @@ export async function executeFileConversion(request: ConversionRequest): Promise
       const ctx = canvas.getContext('2d');
       if (!ctx) throw new Error('Canvas 2D context unavailable');
 
-      // For JPEG, fill white background if transparent
-      if (targetMime === 'image/jpeg') {
+      // For JPEG/BMP, fill white background if transparent
+      if (targetExt === 'jpg' || targetExt === 'jpeg' || targetExt === 'bmp') {
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
       ctx.drawImage(img, 0, 0);
 
+      // Handle PDF conversion in browser with pdf-lib
+      if (targetExt === 'pdf') {
+        const { PDFDocument } = await import('pdf-lib');
+        const pdfDoc = await PDFDocument.create();
+        const pngDataUrl = canvas.toDataURL('image/png');
+        const pngBytes = await fetch(pngDataUrl).then((res) => res.arrayBuffer());
+        const embeddedImg = await pdfDoc.embedPng(pngBytes);
+        const page = pdfDoc.addPage([embeddedImg.width, embeddedImg.height]);
+        page.drawImage(embeddedImg, { x: 0, y: 0, width: embeddedImg.width, height: embeddedImg.height });
+        const pdfBytes = await pdfDoc.save();
+        const pdfBlob = new Blob([pdfBytes as any], { type: 'application/pdf' });
+        const downloadUrl = URL.createObjectURL(pdfBlob);
+        const outputName = `${baseName}.pdf`;
+
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = outputName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(objectUrl);
+
+        return { success: true, outputName, downloadUrl };
+      }
+
+      const targetMime = mimeTypeMap[targetExt] || 'image/png';
       const blob = await new Promise<Blob | null>((resolve) =>
         canvas.toBlob((b) => resolve(b), targetMime, 0.92)
       );

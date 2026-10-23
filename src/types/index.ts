@@ -47,12 +47,40 @@ export interface ConversionResponse {
   error?: string;
 }
 
+export interface MetadataInfo {
+  format?: string;
+  width?: number;
+  height?: number;
+  space?: string;
+  channels?: number;
+  depth?: string;
+  density?: number;
+  hasAlpha?: boolean;
+  fileSizeBytes?: number;
+  formattedSize?: string;
+  hasProfile?: boolean;
+  exifTags?: Record<string, any>;
+}
+
 export interface ElectronAPI {
   convertFile: (request: ConversionRequest) => Promise<ConversionResponse>;
   saveFileDialog: (defaultName: string) => Promise<string | null>;
   openInFolder: (filePath: string) => Promise<void>;
   hideWindow: () => void;
   showWindow: () => void;
+  saveBase64Image: (request: {
+    sourceFilePath: string;
+    base64Data: string;
+    suffix: string;
+    ext?: string;
+  }) => Promise<ConversionResponse>;
+  compressImage: (request: {
+    sourceFilePath: string;
+    quality: number;
+  }) => Promise<ConversionResponse & { originalSize?: number; newSize?: number }>;
+  getMetadata: (sourceFilePath: string) => Promise<{ success: boolean; data?: MetadataInfo; error?: string }>;
+  stripMetadata: (sourceFilePath: string) => Promise<ConversionResponse>;
+  readFileBase64: (filePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
   onFileDropTrigger?: (callback: (fileInfo: DroppedFileInfo) => void) => void;
 }
 

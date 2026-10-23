@@ -8,6 +8,12 @@ import { DroppedFileInfo, RadialSliceItem, ConversionResponse } from './types';
 import { RadialMenu } from './components/RadialMenu/RadialMenu';
 import { DropZone } from './components/DropZone/DropZone';
 import { executeFileConversion } from './services/conversionService';
+import { CropModal } from './components/Modals/CropModal';
+import { AddBgModal } from './components/Modals/AddBgModal';
+import { CompressModal } from './components/Modals/CompressModal';
+import { MetadataModal } from './components/Modals/MetadataModal';
+import { RedactModal } from './components/Modals/RedactModal';
+import { AnnotateModal } from './components/Modals/AnnotateModal';
 
 export const App: React.FC = () => {
   const [currentFile, setCurrentFile] = useState<DroppedFileInfo | null>({
@@ -19,15 +25,43 @@ export const App: React.FC = () => {
     category: 'pdf',
   });
 
+  const [activeModal, setActiveModal] = useState<'crop' | 'add-bg' | 'compress' | 'metadata' | 'redact' | 'annotate' | null>(null);
   const [isConverting, setIsConverting] = useState(false);
   const [conversionSuccess, setConversionSuccess] = useState(false);
   const [conversionError, setConversionError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ConversionResponse | null>(null);
 
-  // Trigger conversion when user drops/clicks a radial slice
+  // Trigger conversion or open modal when user drops/clicks a radial slice
   const handleSelectAction = async (slice: RadialSliceItem) => {
     if (!currentFile || isConverting) return;
 
+    // 1. Intercept Quick Action Modals
+    if (slice.id === 'crop') {
+      setActiveModal('crop');
+      return;
+    }
+    if (slice.id === 'add-bg') {
+      setActiveModal('add-bg');
+      return;
+    }
+    if (slice.id === 'compress') {
+      setActiveModal('compress');
+      return;
+    }
+    if (slice.id === 'metadata') {
+      setActiveModal('metadata');
+      return;
+    }
+    if (slice.id === 'redact') {
+      setActiveModal('redact');
+      return;
+    }
+    if (slice.id === 'annotate') {
+      setActiveModal('annotate');
+      return;
+    }
+
+    // 2. Format conversions
     setIsConverting(true);
     setConversionSuccess(false);
     setConversionError(null);
@@ -52,6 +86,12 @@ export const App: React.FC = () => {
     } finally {
       setIsConverting(false);
     }
+  };
+
+  const handleModalSuccess = (res: ConversionResponse) => {
+    setConversionSuccess(true);
+    setLastResult(res);
+    setTimeout(() => setConversionSuccess(false), 4000);
   };
 
   const handleOpenFolder = () => {
@@ -177,6 +217,52 @@ export const App: React.FC = () => {
           Local Engine: <span className="text-emerald-400">Ready</span> (Rp 0)
         </div>
       </footer>
+
+      {/* Interactive Quick Action Modals */}
+      <AnimatePresence>
+        {activeModal === 'crop' && currentFile && (
+          <CropModal
+            fileInfo={currentFile}
+            onClose={() => setActiveModal(null)}
+            onSuccess={handleModalSuccess}
+          />
+        )}
+        {activeModal === 'add-bg' && currentFile && (
+          <AddBgModal
+            fileInfo={currentFile}
+            onClose={() => setActiveModal(null)}
+            onSuccess={handleModalSuccess}
+          />
+        )}
+        {activeModal === 'compress' && currentFile && (
+          <CompressModal
+            fileInfo={currentFile}
+            onClose={() => setActiveModal(null)}
+            onSuccess={handleModalSuccess}
+          />
+        )}
+        {activeModal === 'metadata' && currentFile && (
+          <MetadataModal
+            fileInfo={currentFile}
+            onClose={() => setActiveModal(null)}
+            onSuccess={handleModalSuccess}
+          />
+        )}
+        {activeModal === 'redact' && currentFile && (
+          <RedactModal
+            fileInfo={currentFile}
+            onClose={() => setActiveModal(null)}
+            onSuccess={handleModalSuccess}
+          />
+        )}
+        {activeModal === 'annotate' && currentFile && (
+          <AnnotateModal
+            fileInfo={currentFile}
+            onClose={() => setActiveModal(null)}
+            onSuccess={handleModalSuccess}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };
