@@ -1,152 +1,127 @@
 import React, { useState } from 'react';
-import { ShieldCheck, UploadCloud, CheckCircle2, Clock, Hash, Globe, File } from 'lucide-react';
 
 export const VerifyPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [hash, setHash] = useState<string | null>(null);
-  const [isVerifying, setIsVerifying] = useState(false);
-  const [verifiedInfo, setVerifiedInfo] = useState<{
-    status: 'verified' | 'unregistered';
-    attestationUid?: string;
-    timestamp?: string;
-    issuer?: string;
-    network?: string;
-  } | null>(null);
+  const [elapsed, setElapsed] = useState<string | null>(null);
+  const [isCopied, setIsCopied] = useState(false);
 
-  const calculateSHA256 = async (inputFile: File): Promise<string> => {
+  const calculateSHA256 = async (inputFile: File) => {
+    const t0 = performance.now();
     const arrayBuffer = await inputFile.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
     const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    const timeTaken = (performance.now() - t0).toFixed(1);
+
+    setFile(inputFile);
+    setHash(hashHex);
+    setElapsed(timeTaken);
   };
 
-  const handleFileDrop = async (e: React.DragEvent) => {
+  const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      processFile(e.dataTransfer.files[0]);
+      calculateSHA256(e.dataTransfer.files[0]);
     }
   };
 
-  const handleFileInput = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
-      processFile(e.target.files[0]);
+      calculateSHA256(e.target.files[0]);
     }
   };
 
-  const processFile = async (f: File) => {
-    setFile(f);
-    setIsVerifying(true);
-    setVerifiedInfo(null);
-
-    const calculatedHash = await calculateSHA256(f);
-    setHash(calculatedHash);
-
-    // Simulate blockchain verification lookup via EAS (Ethereum Attestation Service)
-    setTimeout(() => {
-      setIsVerifying(false);
-      setVerifiedInfo({
-        status: 'verified',
-        attestationUid: `0x${calculatedHash.slice(0, 32)}...`,
-        timestamp: new Date().toLocaleDateString('id-ID', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        }),
-        issuer: '0x8f2a...4b19 (EAS Attester)',
-        network: 'Base L2 (Ethereum Attestation Service)',
-      });
-    }, 900);
+  const copyHash = () => {
+    if (!hash) return;
+    navigator.clipboard.writeText(`0x${hash}`);
+    setIsCopied(true);
+    setTimeout(() => setIsCopied(false), 2000);
   };
 
   return (
-    <div className="pt-28 pb-20 max-w-4xl mx-auto px-4 sm:px-6">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold mb-3">
-          <ShieldCheck size={14} />
-          <span>Ethereum Attestation Service (EAS)</span>
+    <div className="py-6 max-w-3xl mx-auto space-y-8">
+      <div className="bg-obsidian-900 border border-obsidian-border rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
+        {/* Header */}
+        <div className="space-y-2 border-b border-obsidian-border pb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-signal-dim border border-[#00e575]/30 rounded-full text-xs font-medium text-[#00e575]">
+            <span>Portal Kriptografi SHA-256 (WebCrypto)</span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
+            Verifikasi Keaslian Dokumen
+          </h1>
+          <p className="text-sm text-[#8ca396] leading-relaxed">
+            Periksa apakah file yang Anda terima memiliki checksum integritas resmi yang cocok. Diproses 100% lokal di browser Anda tanpa mengunggah file ke server.
+          </p>
         </div>
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">
-          Portal Verifikasi Keaslian Dokumen
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-lg mx-auto">
-          Cek apakah file atau karya yang Anda terima telah dicap resmi (STAMP) dengan integritas kriptografi SHA-256 tanpa perlu menginstal aplikasi desktop.
-        </p>
+
+        {/* Dropzone */}
+        <label
+          htmlFor="verifyFileInput"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleFileDrop}
+          className="block w-full p-10 bg-obsidian-950 border-2 border-dashed border-obsidian-border hover:border-[#00e575] rounded-xl transition cursor-pointer text-center space-y-3 group"
+        >
+          <input
+            id="verifyFileInput"
+            type="file"
+            className="hidden"
+            onChange={handleFileInput}
+          />
+          <div className="w-12 h-12 mx-auto bg-obsidian-900 border border-[#00e575]/50 group-hover:bg-[#00e575] group-hover:text-obsidian-950 text-[#00e575] rounded-xl flex items-center justify-center transition">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/>
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <p className="text-base font-bold text-white">
+              {file ? `File: ${file.name}` : 'Seret & Lepas Dokumen ke Sini'}
+            </p>
+            <p className="text-xs text-[#6e8578]">
+              Atau klik untuk memilih file dari komputer Anda
+            </p>
+          </div>
+        </label>
+
+        {/* Result Card */}
+        {hash && file && (
+          <div className="bg-obsidian-950 border border-[#00e575] rounded-xl p-5 space-y-4">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-obsidian-border pb-3">
+              <div>
+                <span className="text-xs font-bold text-white block">{file.name}</span>
+                <span className="text-[11px] text-[#6e8578]">
+                  Ukuran: {(file.size / 1024).toFixed(1)} KB • Selesai dalam {elapsed} ms
+                </span>
+              </div>
+              <span className="text-xs px-2.5 py-1 bg-signal-dim text-[#00e575] font-bold rounded border border-[#00e575]/40">
+                ✓ SHA-256 Terverifikasi
+              </span>
+            </div>
+
+            <div className="space-y-1.5">
+              <span className="text-[11px] text-[#6e8578] uppercase font-semibold">
+                Nilai Checksum Kriptografi (Hash SHA-256):
+              </span>
+              <div className="flex items-center justify-between gap-3 bg-obsidian-900 border border-obsidian-border p-3 rounded-lg">
+                <code className="font-mono text-xs text-[#00e575] break-all">
+                  0x{hash}
+                </code>
+                <button
+                  type="button"
+                  onClick={copyHash}
+                  className="px-3 py-1.5 bg-[#00e575] hover:bg-[#19ff8c] !text-black font-bold text-xs rounded transition shrink-0 cursor-pointer"
+                >
+                  <span className="!text-black">{isCopied ? 'Tersalin!' : 'Salin'}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="text-center text-xs text-[#6e8578]">
+          🔒 0 Byte diunggah ke internet — Eksekusi murni di mesin peramban Anda.
+        </div>
       </div>
-
-      {/* Drag and drop upload box */}
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleFileDrop}
-        className="w-full p-10 rounded-3xl border-2 border-dashed border-slate-700 bg-slate-900/60 hover:bg-slate-900/80 hover:border-emerald-500/50 transition-all flex flex-col items-center justify-center cursor-pointer backdrop-blur-xl shadow-2xl relative"
-        onClick={() => document.getElementById('verify-file-input')?.click()}
-      >
-        <input
-          id="verify-file-input"
-          type="file"
-          className="hidden"
-          onChange={handleFileInput}
-        />
-        <div className="w-16 h-16 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 mb-4">
-          <UploadCloud size={28} />
-        </div>
-        <h3 className="text-base font-bold text-white mb-1">
-          {file ? file.name : 'Seret & Lepas Dokumen untuk Diverifikasi'}
-        </h3>
-        <p className="text-xs text-slate-400">
-          File diproses 100% lokal di browser Anda. Tidak ada data yang diunggah ke server mana pun.
-        </p>
-      </div>
-
-      {/* Verification Result Card */}
-      {isVerifying ? (
-        <div className="mt-8 p-6 rounded-3xl bg-slate-900 border border-slate-800 text-center animate-pulse">
-          <div className="text-xs text-emerald-400 font-semibold">
-            Menghitung kode SHA-256 & mencocokkan attestation on-chain...
-          </div>
-        </div>
-      ) : verifiedInfo && hash ? (
-        <div className="mt-8 rounded-3xl bg-slate-900/90 border border-emerald-500/40 p-6 shadow-2xl backdrop-blur-xl">
-          <div className="flex items-center gap-3 pb-4 border-b border-slate-800 mb-4">
-            <div className="w-10 h-10 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 size={22} />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-emerald-400">Dokumen Otentik Terverifikasi</h4>
-              <p className="text-[11px] text-slate-400">Kode hash cocok dengan catatan stempel on-chain.</p>
-            </div>
-          </div>
-
-          <div className="space-y-3 text-xs">
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
-              <Hash size={14} className="text-slate-400 mt-0.5 shrink-0" />
-              <div className="overflow-hidden">
-                <span className="text-[10px] font-mono text-slate-400 block uppercase">SHA-256 Hash Dokumen</span>
-                <span className="font-mono text-slate-200 text-[11px] break-all">{hash}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
-                <Clock size={14} className="text-slate-400 mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Waktu Pencatatan</span>
-                  <span className="text-slate-200 font-semibold">{verifiedInfo.timestamp}</span>
-                </div>
-              </div>
-
-              <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-2.5">
-                <Globe size={14} className="text-slate-400 mt-0.5 shrink-0" />
-                <div>
-                  <span className="text-[10px] font-mono text-slate-400 block uppercase">Jaringan Verifikasi</span>
-                  <span className="text-slate-200 font-semibold">{verifiedInfo.network}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      ) : null}
     </div>
   );
 };

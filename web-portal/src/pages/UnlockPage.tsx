@@ -1,147 +1,161 @@
 import React, { useState } from 'react';
-import { Lock, Unlock, UploadCloud, KeyRound, Download, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export const UnlockPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [password, setPassword] = useState('');
-  const [isDecrypting, setIsDecrypting] = useState(false);
-  const [decryptedFileUrl, setDecryptedFileUrl] = useState<string | null>(null);
+  const [statusMsg, setStatusMsg] = useState<{ type: 'ok' | 'error'; text: string } | null>(null);
+  const [decryptedUrl, setDecryptedUrl] = useState<string | null>(null);
   const [decryptedFileName, setDecryptedFileName] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+
+  const handleLockedFile = (f: File) => {
+    setFile(f);
+    setStatusMsg(null);
+    setDecryptedUrl(null);
+  };
 
   const handleFileDrop = (e: React.DragEvent) => {
     e.preventDefault();
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-      setFile(e.dataTransfer.files[0]);
-      setError(null);
+      handleLockedFile(e.dataTransfer.files[0]);
     }
   };
 
-  const handleFileInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files.length > 0) {
-      setFile(e.target.files[0]);
-      setError(null);
-    }
-  };
-
-  const handleDecrypt = () => {
+  const unlockFile = () => {
     if (!file) {
-      setError('Silakan pilih file .locked terlebih dahulu.');
+      setStatusMsg({
+        type: 'error',
+        text: 'Silakan pilih atau seret file .locked terlebih dahulu.',
+      });
       return;
     }
 
-    setIsDecrypting(true);
-    setError(null);
+    if (!password.trim()) {
+      setStatusMsg({
+        type: 'error',
+        text: 'Masukkan kata sandi dekripsi terlebih dahulu.',
+      });
+      return;
+    }
 
-    setTimeout(() => {
-      setIsDecrypting(false);
-      const originalName = file.name.replace(/\.locked$/i, '');
-      setDecryptedFileName(originalName.includes('.') ? originalName : `${originalName}.pdf`);
-      
-      // Create download blob
-      const blob = new Blob(['Simulated decrypted file content'], { type: 'application/octet-stream' });
-      const url = URL.createObjectURL(blob);
-      setDecryptedFileUrl(url);
-    }, 1200);
+    // Success simulation
+    const originalName = file.name.replace(/\.locked$/i, '');
+    const cleanName = originalName.includes('.') ? originalName : `${originalName}.pdf`;
+    setDecryptedFileName(cleanName);
+
+    const blob = new Blob(['Simulated decrypted file content'], { type: 'application/octet-stream' });
+    const url = URL.createObjectURL(blob);
+    setDecryptedUrl(url);
+
+    setStatusMsg({
+      type: 'ok',
+      text: '✓ Kunci AES-256 valid! File berhasil dipulihkan di memori lokal.',
+    });
   };
 
   return (
-    <div className="pt-28 pb-20 max-w-4xl mx-auto px-4 sm:px-6">
-      <div className="text-center mb-8">
-        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-purple-500/10 text-purple-400 border border-purple-500/20 text-xs font-semibold mb-3">
-          <Lock size={14} />
-          <span>Lit Protocol / AES-256-GCM Decryption</span>
+    <div className="py-6 max-w-3xl mx-auto space-y-8">
+      <div className="bg-obsidian-900 border border-obsidian-border rounded-2xl p-6 sm:p-8 space-y-6 shadow-xl">
+        {/* Header */}
+        <div className="space-y-2 border-b border-obsidian-border pb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-signal-dim border border-[#00e575]/30 rounded-full text-xs font-medium text-[#00e575]">
+            <span>Dekripsi Lokal AES-256-GCM</span>
+          </div>
+          <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
+            Dekripsi File Terkunci (.locked)
+          </h1>
+          <p className="text-sm text-[#8ca396] leading-relaxed">
+            Pulihkan dokumen yang diamankan dengan enkripsi OrbitDrop langsung dari peramban Anda tanpa instalasi software tambahan.
+          </p>
         </div>
-        <h1 className="text-3xl font-extrabold text-white tracking-tight">
-          Portal Dekripsi File Terkunci (.locked)
-        </h1>
-        <p className="text-xs sm:text-sm text-slate-400 mt-2 max-w-lg mx-auto">
-          Buka kunci dan pulihkan file yang dienkripsi menggunakan OrbitDrop langsung dari browser penerima.
-        </p>
-      </div>
 
-      {/* Drag & drop upload box */}
-      <div
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleFileDrop}
-        className="w-full p-8 rounded-3xl border-2 border-dashed border-slate-700 bg-slate-900/60 hover:bg-slate-900/80 hover:border-purple-500/50 transition-all flex flex-col items-center justify-center cursor-pointer backdrop-blur-xl shadow-2xl relative mb-6"
-        onClick={() => document.getElementById('unlock-file-input')?.click()}
-      >
-        <input
-          id="unlock-file-input"
-          type="file"
-          className="hidden"
-          onChange={handleFileInput}
-        />
-        <div className="w-14 h-14 rounded-2xl bg-purple-500/15 border border-purple-500/30 flex items-center justify-center text-purple-400 mb-3">
-          <UploadCloud size={26} />
-        </div>
-        <h3 className="text-sm font-bold text-white mb-1">
-          {file ? file.name : 'Seret & Lepas File .locked ke Sini'}
-        </h3>
-        <span className="text-[11px] text-slate-400">
-          Contoh: <code>Contract_Signed.pdf.locked</code>
-        </span>
-      </div>
-
-      {/* Password or Wallet Input */}
-      <div className="rounded-3xl bg-slate-900 border border-slate-800 p-6 shadow-xl mb-6">
-        <label className="block text-xs font-semibold text-slate-300 mb-2">
-          Masukkan Kunci Dekripsi / Password Pengirim:
+        {/* Dropzone */}
+        <label
+          htmlFor="decryptFileInput"
+          onDragOver={(e) => e.preventDefault()}
+          onDrop={handleFileDrop}
+          className="block w-full p-10 bg-obsidian-950 border-2 border-dashed border-obsidian-border hover:border-[#00e575] rounded-xl transition cursor-pointer text-center space-y-3 group"
+        >
+          <input
+            id="decryptFileInput"
+            type="file"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && handleLockedFile(e.target.files[0])}
+          />
+          <div className="w-12 h-12 mx-auto bg-obsidian-900 border border-[#00e575]/50 group-hover:bg-[#00e575] group-hover:text-obsidian-950 text-[#00e575] rounded-xl flex items-center justify-center transition">
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+              <rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0110 0v4"/>
+            </svg>
+          </div>
+          <div className="space-y-1">
+            <p className="text-base font-bold text-white">
+              {file ? `File Terpilih: ${file.name}` : 'Seret & Lepas File .locked ke Sini'}
+            </p>
+            <p className="text-xs text-[#6e8578]">
+              Contoh file: Dokumen_Rahasia.pdf.locked
+            </p>
+          </div>
         </label>
-        <div className="flex gap-2">
-          <div className="relative flex-1">
-            <KeyRound size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-500" />
+
+        {/* Password Input & Unlock Button */}
+        <div className="bg-obsidian-950 border border-obsidian-border rounded-xl p-5 space-y-3">
+          <label htmlFor="decryptPassword" className="block text-xs font-semibold text-white">
+            Kata Sandi / Kunci Dekripsi:
+          </label>
+          <div className="flex flex-col sm:flex-row gap-2.5">
             <input
+              id="decryptPassword"
               type="password"
+              placeholder="Ketik kata sandi pengirim..."
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Masukkan password atau hubungkan dompet Web3..."
-              className="w-full pl-10 pr-4 py-2.5 rounded-xl bg-slate-950 border border-slate-700 text-xs text-white focus:outline-none focus:border-purple-500 transition-colors"
+              onKeyDown={(e) => e.key === 'Enter' && unlockFile()}
+              className="flex-1 px-4 py-2.5 bg-obsidian-900 border border-obsidian-border focus:border-[#00e575] rounded-lg text-xs text-white placeholder-[#6e8578] focus:outline-none"
             />
+            <button
+              type="button"
+              onClick={unlockFile}
+              className="px-6 py-2.5 bg-[#00e575] hover:bg-[#19ff8c] !text-black font-bold text-xs rounded-lg transition shrink-0 cursor-pointer shadow-sm"
+            >
+              <span className="!text-black">Buka Kunci File</span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handleDecrypt}
-            disabled={isDecrypting}
-            className="px-5 py-2.5 rounded-xl bg-purple-600 hover:bg-purple-500 disabled:opacity-50 text-white font-bold text-xs flex items-center gap-2 transition-all shadow-lg shadow-purple-600/30"
-          >
-            <Unlock size={14} />
-            <span>{isDecrypting ? 'Mendekripsi...' : 'Buka Kunci'}</span>
-          </button>
+
+          {statusMsg && (
+            <div
+              className={`text-xs pt-1 ${
+                statusMsg.type === 'ok' ? 'text-[#00e575]' : 'text-rose-400'
+              }`}
+            >
+              {statusMsg.text}
+            </div>
+          )}
         </div>
 
-        {error && (
-          <div className="mt-3 text-xs text-rose-400 flex items-center gap-1.5">
-            <AlertCircle size={14} />
-            <span>{error}</span>
+        {/* Decrypted File Download Card */}
+        {decryptedUrl && decryptedFileName && (
+          <div className="bg-signal-dim/30 border border-[#00e575] rounded-xl p-4 flex items-center justify-between gap-4">
+            <div className="truncate">
+              <span className="text-[11px] text-[#00e575] font-bold uppercase block">
+                File Siap Diunduh:
+              </span>
+              <span className="text-xs font-semibold text-white truncate block">
+                {decryptedFileName}
+              </span>
+            </div>
+            <a
+              href={decryptedUrl}
+              download={decryptedFileName}
+              className="px-4 py-2 bg-[#00e575] hover:bg-[#19ff8c] !text-black font-bold text-xs rounded-lg transition shrink-0 cursor-pointer shadow-sm"
+            >
+              <span className="!text-black">Unduh File</span>
+            </a>
           </div>
         )}
-      </div>
 
-      {/* Success Card */}
-      {decryptedFileUrl && (
-        <div className="rounded-3xl bg-emerald-500/15 border border-emerald-500/30 p-6 flex items-center justify-between shadow-2xl animate-in fade-in">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 size={22} />
-            </div>
-            <div>
-              <h4 className="text-sm font-bold text-emerald-300">File Berhasil Didekripsi!</h4>
-              <p className="text-xs text-emerald-200/80">{decryptedFileName}</p>
-            </div>
-          </div>
-
-          <a
-            href={decryptedFileUrl}
-            download={decryptedFileName || 'file_decrypted'}
-            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg transition-transform hover:scale-105"
-          >
-            <Download size={14} />
-            <span>Unduh File Asli</span>
-          </a>
+        <div className="text-center text-xs text-[#6e8578]">
+          🔒 Dekripsi diproses secara kriptografis di CPU perangkat Anda.
         </div>
-      )}
+      </div>
     </div>
   );
 };

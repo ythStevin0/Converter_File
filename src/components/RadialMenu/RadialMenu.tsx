@@ -5,10 +5,12 @@ import { CenterCircle } from './CenterCircle';
 import { RingToggle } from './RingToggle';
 import { DroppedFileInfo, RadialSliceItem, MenuRingMode } from '../../types';
 import { getFormatSlicesForCategory, QUICK_ACTIONS_SLICES } from '../../utils/formatRouter';
+import { parseDroppedFile } from '../../utils/fileHelpers';
 
 interface RadialMenuProps {
   fileInfo: DroppedFileInfo | null;
-  onSelectAction: (slice: RadialSliceItem) => void;
+  onSelectAction: (slice: RadialSliceItem, droppedFile?: File) => void;
+  onFileLoaded?: (fileInfo: DroppedFileInfo) => void;
   isConverting: boolean;
   conversionSuccess: boolean;
   conversionError: string | null;
@@ -18,6 +20,7 @@ interface RadialMenuProps {
 export const RadialMenu: React.FC<RadialMenuProps> = ({
   fileInfo,
   onSelectAction,
+  onFileLoaded,
   isConverting,
   conversionSuccess,
   conversionError,
@@ -62,6 +65,68 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
     }
   };
 
+  // Polar coordinate drag math: automatically detects slice under cursor
+  const handleWheelDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer) {
+      e.dataTransfer.dropEffect = 'copy';
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left - 250;
+    const y = e.clientY - rect.top - 250;
+    const dist = Math.sqrt(x * x + y * y);
+
+    if (dist >= 84 && dist <= 235 && activeSlices.length > 0) {
+      let angle = Math.atan2(y, x) + Math.PI / 2;
+      if (angle < 0) angle += 2 * Math.PI;
+
+      const sliceAngle = (2 * Math.PI) / activeSlices.length;
+      const sliceIndex = Math.floor(angle / sliceAngle) % activeSlices.length;
+      const targetSlice = activeSlices[sliceIndex];
+      if (targetSlice && hoveredSlice?.id !== targetSlice.id) {
+        setHoveredSlice(targetSlice);
+      }
+    } else if (dist < 84) {
+      if (hoveredSlice !== null) {
+        setHoveredSlice(null);
+      }
+    }
+  };
+
+  const handleWheelDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const file = e.dataTransfer?.files?.[0];
+    if (!file) return;
+
+    const rect = e.currentTarget.getBoundingClientRect();
+    const x = e.clientX - rect.left - 250;
+    const y = e.clientY - rect.top - 250;
+    const dist = Math.sqrt(x * x + y * y);
+
+    if (dist >= 84 && dist <= 235 && activeSlices.length > 0) {
+      let angle = Math.atan2(y, x) + Math.PI / 2;
+      if (angle < 0) angle += 2 * Math.PI;
+      const sliceAngle = (2 * Math.PI) / activeSlices.length;
+      const sliceIndex = Math.floor(angle / sliceAngle) % activeSlices.length;
+      const targetSlice = activeSlices[sliceIndex];
+      if (targetSlice) {
+        onSelectAction(targetSlice, file);
+        setHoveredSlice(null);
+        return;
+      }
+    }
+
+    // Dropped on center circle or outer wheel area: load new file!
+    if (onFileLoaded) {
+      const parsed = parseDroppedFile(file);
+      onFileLoaded(parsed);
+    }
+    setHoveredSlice(null);
+  };
+
   return (
     <div 
       className="relative flex flex-col items-center justify-center select-none"
@@ -74,38 +139,67 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
         exit={{ scale: 0.85, opacity: 0 }}
         transition={{ type: 'spring', damping: 22, stiffness: 300 }}
         className="relative w-[500px] h-[500px] flex items-center justify-center"
+        onDragOver={handleWheelDragOver}
+        onDrop={handleWheelDrop}
       >
-        {/* Ambient Ring Glow */}
+        {/* Ambient Ring Glow (Radioactive Omnitrix Alien Green Glow) */}
         <div 
-          className="absolute w-[440px] h-[440px] rounded-full blur-2xl opacity-25 pointer-events-none transition-colors duration-500"
+          className="absolute w-[470px] h-[470px] rounded-full blur-3xl opacity-60 pointer-events-none transition-all duration-500"
           style={{
-            background: ringMode === 'format'
-              ? 'radial-gradient(circle, #3b82f6 0%, #8b5cf6 50%, transparent 70%)'
-              : 'radial-gradient(circle, #f97316 0%, #ec4899 50%, transparent 70%)',
+            background: 'radial-gradient(circle, rgba(34, 197, 94, 0.42) 0%, rgba(22, 163, 74, 0.16) 50%, transparent 72%)',
           }}
         />
 
-        {/* Outer Guide Ring */}
+        {/* Omnitrix Mechanical Bezel & Guide Rings */}
         <svg
           viewBox="0 0 500 500"
-          className="absolute inset-0 w-full h-full pointer-events-none"
+          className="absolute inset-0 w-full h-full pointer-events-none z-0"
         >
+          {/* Outer Matte Grey Industrial Collar */}
           <circle
             cx="250"
             cy="250"
             r="234"
             fill="none"
-            stroke="rgba(255, 255, 255, 0.08)"
-            strokeWidth="1"
-            strokeDasharray="4 6"
+            stroke="#94a3b8"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+          />
+
+          {/* Omnitrix Vibrant Green Accent Ring */}
+          <circle
+            cx="250"
+            cy="250"
+            r="228"
+            fill="none"
+            stroke="#22c55e"
+            strokeWidth="2"
+            opacity="0.95"
+          />
+
+          {/* 4 Quadrant Mechanical Notches (Omnitrix Bezel Slits at 12, 3, 6, 9 o'clock) */}
+          <line x1="250" y1="12" x2="250" y2="26" stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
+          <line x1="474" y1="250" x2="488" y2="250" stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
+          <line x1="250" y1="474" x2="250" y2="488" stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
+          <line x1="12" y1="250" x2="26" y2="250" stroke="#e2e8f0" strokeWidth="3" strokeLinecap="round" />
+
+          {/* Inner Raised Dial Collar (Light Grey & Green Ring) */}
+          <circle
+            cx="250"
+            cy="250"
+            r="85"
+            fill="none"
+            stroke="#cbd5e1"
+            strokeWidth="3"
           />
           <circle
             cx="250"
             cy="250"
             r="82"
             fill="none"
-            stroke="rgba(255, 255, 255, 0.12)"
-            strokeWidth="1"
+            stroke="#22c55e"
+            strokeWidth="1.5"
+            opacity="0.9"
           />
         </svg>
 
@@ -134,7 +228,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
                   center={250}
                   isActive={hoveredSlice?.id === item.id}
                   onHover={(slice) => setHoveredSlice(slice)}
-                  onSelect={(slice) => onSelectAction(slice)}
+                  onSelect={(slice, droppedFile) => onSelectAction(slice, droppedFile)}
                 />
               ))}
             </motion.g>

@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Palette, RotateCcw, Check, Sparkles, Sliders, Layers } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
+import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
 interface AddBgModalProps {
   fileInfo: DroppedFileInfo;
@@ -19,19 +20,33 @@ interface BgPreset {
   gradient?: [string, string];
 }
 
-const BG_PRESETS: BgPreset[] = [
-  { id: 'transparent', name: 'Transparent', type: 'transparent', value: 'transparent' },
-  { id: 'dark', name: 'Dark Slate', type: 'solid', value: '#0f172a' },
-  { id: 'white', name: 'Clean White', type: 'solid', value: '#ffffff' },
+const BG_GRADIENTS: BgPreset[] = [
+  { id: 'grad-sunset', name: 'Sunset Orange', type: 'gradient', value: '', gradient: ['#f97316', '#eab308'] },
+  { id: 'grad-white-glow', name: 'Pure Frost', type: 'gradient', value: '', gradient: ['#ffffff', '#f1f5f9'] },
+  { id: 'grad-warm-pastel', name: 'Warm Pastel', type: 'gradient', value: '', gradient: ['#fde68a', '#fca5a5'] },
+  { id: 'grad-soft-cloud', name: 'Soft Peach', type: 'gradient', value: '', gradient: ['#fed7aa', '#fbcfe8'] },
+  { id: 'grad-dusk', name: 'Deep Sunset', type: 'gradient', value: '', gradient: ['#7c2d12', '#b91c1c'] },
+  { id: 'grad-ocean', name: 'Ocean Cyan', type: 'gradient', value: '', gradient: ['#06b6d4', '#3b82f6'] },
   { id: 'grad-hyper', name: 'Hyper Violet', type: 'gradient', value: '', gradient: ['#4f46e5', '#9333ea'] },
-  { id: 'grad-sunset', name: 'Sunset Glow', type: 'gradient', value: '', gradient: ['#f97316', '#db2777'] },
-  { id: 'grad-ocean', name: 'Ocean Cyan', type: 'gradient', value: '', gradient: ['#0284c7', '#0d9488'] },
-  { id: 'grad-neon', name: 'Neon Cyber', type: 'gradient', value: '', gradient: ['#10b981', '#3b82f6'] },
-  { id: 'grad-aurora', name: 'Aurora Dusk', type: 'gradient', value: '', gradient: ['#ec4899', '#8b5cf6'] },
 ];
 
+const BG_SOLIDS: BgPreset[] = [
+  { id: 'solid-white', name: 'White', type: 'solid', value: '#ffffff' },
+  { id: 'solid-yellow', name: 'Amber Yellow', type: 'solid', value: '#eab308' },
+  { id: 'solid-lime', name: 'Lime', type: 'solid', value: '#84cc16' },
+  { id: 'solid-green', name: 'Emerald Green', type: 'solid', value: '#10b981' },
+  { id: 'solid-teal', name: 'Teal', type: 'solid', value: '#14b8a6' },
+  { id: 'solid-cyan', name: 'Sky Cyan', type: 'solid', value: '#06b6d4' },
+  { id: 'solid-blue', name: 'Electric Blue', type: 'solid', value: '#2563eb' },
+  { id: 'solid-slate', name: 'Deep Navy', type: 'solid', value: '#1e293b' },
+  { id: 'solid-purple', name: 'Royal Purple', type: 'solid', value: '#7c3aed' },
+  { id: 'solid-indigo', name: 'Indigo Pill', type: 'solid', value: '#4338ca' },
+];
+
+const BG_PRESETS: BgPreset[] = [...BG_GRADIENTS, ...BG_SOLIDS];
+
 export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuccess }) => {
-  const [imageSrc, setImageSrc] = useState<string>('');
+  const imageSrc = useFilePreview(fileInfo);
   const [selectedPreset, setSelectedPreset] = useState<BgPreset>(BG_PRESETS[3]); // default Hyper Violet gradient
   const [padding, setPadding] = useState<number>(48);
   const [borderRadius, setBorderRadius] = useState<number>(24);
@@ -41,28 +56,6 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImageRef = useRef<HTMLImageElement | null>(null);
-
-  // Load preview image
-  useEffect(() => {
-    let active = true;
-
-    async function loadImg() {
-      if (fileInfo.file) {
-        const url = URL.createObjectURL(fileInfo.file);
-        if (active) setImageSrc(url);
-      } else if (window.electronAPI && typeof window.electronAPI.readFileBase64 === 'function') {
-        const res = await window.electronAPI.readFileBase64(fileInfo.path);
-        if (active && res.success && res.dataUrl) {
-          setImageSrc(res.dataUrl);
-        }
-      }
-    }
-
-    loadImg();
-    return () => {
-      active = false;
-    };
-  }, [fileInfo]);
 
   // Redraw canvas whenever settings change
   useEffect(() => {
@@ -198,38 +191,15 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
     try {
       const base64Data = canvas.toDataURL('image/png');
 
-      if (window.electronAPI && typeof window.electronAPI.saveBase64Image === 'function') {
-        const res = await window.electronAPI.saveBase64Image({
-          sourceFilePath: fileInfo.path,
-          base64Data,
-          suffix: 'With Background',
-          ext: 'png',
-        });
-
-        if (res.success) {
-          onSuccess(res);
-          onClose();
-        } else {
-          alert('Failed to save: ' + res.error);
-        }
-      } else {
-        // Browser fallback
-        const baseName = fileInfo.name.replace(/\.[^.]+$/, '');
-        const outputName = `${baseName} With Background.png`;
-        const link = document.createElement('a');
-        link.download = outputName;
-        link.href = base64Data;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        onSuccess({
-          success: true,
-          outputName,
-          downloadUrl: base64Data,
-        });
-        onClose();
-      }
+      await saveEditedImage({
+        fileInfo,
+        dataUrl: base64Data,
+        suffix: 'With Background',
+        ext: 'png',
+        message: 'Saved with background successfully',
+        onSuccess,
+        onClose,
+      });
     } catch (err: any) {
       alert('Error saving image: ' + err.message);
     } finally {
@@ -242,72 +212,86 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md select-none"
     >
       <motion.div
-        initial={{ scale: 0.92, y: 10 }}
+        initial={{ scale: 0.94, y: 12 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.92, y: 10 }}
-        className="relative w-full max-w-xl bg-slate-900/95 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        exit={{ scale: 0.94, y: 12 }}
+        transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+        className="relative w-full max-w-md rounded-[28px] shadow-2xl overflow-hidden flex flex-col p-5"
+        style={{
+          background: 'radial-gradient(135deg, #1e293b 0%, #0a0f1d 100%)',
+          border: '2px solid #94a3b8',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(34, 197, 94, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.2)',
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-pink-500/20 border border-pink-500/30 flex items-center justify-center text-pink-400">
-              <Palette size={15} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">Add Background</h2>
-              <p className="text-[10px] text-slate-400">{fileInfo.name}</p>
-            </div>
-          </div>
+        {/* Top Header (Close button on Left, Centered Title with Silver Rivet) */}
+        <div className="relative flex items-center justify-center mb-3">
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            className="absolute left-0 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-600 flex items-center justify-center transition-colors font-bold cursor-pointer"
           >
-            <X size={15} />
+            <X size={15} strokeWidth={2.4} />
           </button>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
+            <h2 className="text-base font-black text-white tracking-tight">Add Background</h2>
+          </div>
         </div>
 
         {/* Live Canvas Preview */}
-        <div className="relative flex items-center justify-center p-4 bg-slate-950/70 min-h-[260px] max-h-[300px] overflow-hidden">
+        <div className="relative flex items-center justify-center p-3 bg-slate-950/80 rounded-2xl min-h-[210px] max-h-[260px] overflow-hidden shadow-inner border border-slate-800 mb-3">
           <canvas
             ref={canvasRef}
-            className="max-h-[270px] max-w-full object-contain rounded-xl shadow-2xl border border-slate-800/50"
+            className="max-h-[240px] max-w-full object-contain rounded-xl shadow-xl"
           />
         </div>
 
-        {/* Controls Panel */}
-        <div className="p-4 bg-slate-950/60 border-t border-slate-800/80 flex flex-col gap-3.5">
-          {/* Background Preset Selector */}
+        {/* Controls Panel (Photo 5) */}
+        <div className="flex flex-col gap-3">
+          {/* Background Preset Swatches */}
           <div>
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-[11px] font-semibold text-slate-300 flex items-center gap-1.5">
-                <Sparkles size={12} className="text-pink-400" /> Pilihan Background:
-              </span>
-              <span className="text-[10px] font-mono text-slate-400">{selectedPreset.name}</span>
-            </div>
-            <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {BG_PRESETS.map((preset) => (
+            <span className="text-xs font-semibold text-slate-300 mb-1.5 block">Background</span>
+            
+            {/* Gradients Row */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 mb-1.5">
+              {BG_GRADIENTS.map((preset) => (
                 <button
                   key={preset.id}
                   type="button"
                   onClick={() => setSelectedPreset(preset)}
                   title={preset.name}
-                  className={`w-7 h-7 rounded-lg transition-transform shrink-0 ${
+                  className={`w-8 h-6 rounded-md transition-all shrink-0 ${
                     selectedPreset.id === preset.id
-                      ? 'ring-2 ring-pink-500 scale-110 shadow-lg'
-                      : 'opacity-70 hover:opacity-100 hover:scale-105'
+                      ? 'ring-2 ring-white scale-105 shadow-md'
+                      : 'opacity-85 hover:opacity-100 hover:scale-105'
                   }`}
                   style={{
-                    background:
-                      preset.type === 'solid'
-                        ? preset.value
-                        : preset.type === 'gradient' && preset.gradient
-                        ? `linear-gradient(135deg, ${preset.gradient[0]}, ${preset.gradient[1]})`
-                        : 'repeating-conic-gradient(#1e293b 0% 25%, #0f172a 0% 50%) 50% / 10px 10px',
-                    border: '1px solid rgba(255,255,255,0.15)',
+                    background: `linear-gradient(135deg, ${preset.gradient![0]}, ${preset.gradient![1]})`,
+                    border: '1px solid rgba(255,255,255,0.4)',
+                  }}
+                />
+              ))}
+            </div>
+
+            {/* Solid Colors Row */}
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1">
+              {BG_SOLIDS.map((preset) => (
+                <button
+                  key={preset.id}
+                  type="button"
+                  onClick={() => setSelectedPreset(preset)}
+                  title={preset.name}
+                  className={`w-6 h-6 rounded-md transition-all shrink-0 ${
+                    selectedPreset.id === preset.id
+                      ? 'ring-2 ring-white scale-110 shadow-md'
+                      : 'opacity-85 hover:opacity-100 hover:scale-105'
+                  }`}
+                  style={{
+                    backgroundColor: preset.value,
+                    border: '1px solid rgba(255,255,255,0.4)',
                   }}
                 />
               ))}
@@ -315,108 +299,96 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
           </div>
 
           {/* Sliders: Padding, Corners, Shadow */}
-          <div className="grid grid-cols-3 gap-3">
-            {/* Padding */}
-            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl">
-              <div className="flex justify-between text-[10px] text-slate-400 font-medium mb-1">
-                <span>Padding</span>
-                <span className="font-mono text-slate-200">{padding}px</span>
-              </div>
+          <div className="flex flex-col gap-2 bg-slate-900/80 p-2.5 rounded-2xl border border-slate-700/60">
+            {/* Padding Slider */}
+            <div className="flex items-center justify-between text-xs gap-3">
+              <span className="font-semibold text-slate-300 w-16">Padding</span>
               <input
                 type="range"
                 min="0"
                 max="120"
                 value={padding}
                 onChange={(e) => setPadding(parseInt(e.target.value))}
-                className="w-full accent-pink-500 h-1 bg-slate-800 rounded-lg cursor-pointer"
+                className="w-full accent-[#22c55e] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
               />
+              <span className="font-mono text-[#86efac] font-bold w-12 text-right tabular-nums">
+                {padding * 4} px
+              </span>
             </div>
 
-            {/* Corners (Border Radius) */}
-            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl">
-              <div className="flex justify-between text-[10px] text-slate-400 font-medium mb-1">
-                <span>Corners</span>
-                <span className="font-mono text-slate-200">{borderRadius}px</span>
-              </div>
+            {/* Corners Slider */}
+            <div className="flex items-center justify-between text-xs gap-3">
+              <span className="font-semibold text-slate-300 w-16">Corners</span>
               <input
                 type="range"
                 min="0"
                 max="64"
                 value={borderRadius}
                 onChange={(e) => setBorderRadius(parseInt(e.target.value))}
-                className="w-full accent-pink-500 h-1 bg-slate-800 rounded-lg cursor-pointer"
+                className="w-full accent-[#22c55e] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
               />
+              <span className="font-mono text-[#86efac] font-bold w-12 text-right tabular-nums">
+                {borderRadius * 3} px
+              </span>
             </div>
 
-            {/* Shadow */}
-            <div className="bg-slate-900/80 border border-slate-800 p-2.5 rounded-xl">
-              <div className="flex justify-between text-[10px] text-slate-400 font-medium mb-1">
-                <span>Shadow</span>
-                <span className="font-mono text-slate-200">{shadowBlur}px</span>
-              </div>
+            {/* Shadow Slider */}
+            <div className="flex items-center justify-between text-xs gap-3">
+              <span className="font-semibold text-slate-300 w-16">Shadow</span>
               <input
                 type="range"
                 min="0"
                 max="60"
                 value={shadowBlur}
                 onChange={(e) => setShadowBlur(parseInt(e.target.value))}
-                className="w-full accent-pink-500 h-1 bg-slate-800 rounded-lg cursor-pointer"
+                className="w-full accent-[#22c55e] h-1.5 bg-slate-800 rounded-lg cursor-pointer"
               />
+              <span className="font-mono text-[#86efac] font-bold w-12 text-right tabular-nums">
+                {shadowBlur} px
+              </span>
             </div>
           </div>
 
-          {/* Canvas Ratio Buttons */}
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1">
-              <Layers size={12} className="text-pink-400" /> Rasio Kanvas:
-            </span>
-            <div className="flex items-center gap-1.5">
-              {(['Auto', '1:1', '16:9', '4:5'] as CanvasRatio[]).map((r) => (
-                <button
-                  key={r}
-                  type="button"
-                  onClick={() => setCanvasRatio(r)}
-                  className={`px-2 py-0.5 rounded-lg text-[10px] font-semibold transition-all ${
-                    canvasRatio === r
-                      ? 'bg-pink-500 text-white shadow-md shadow-pink-500/20'
-                      : 'bg-slate-800 text-slate-400 hover:text-white'
-                  }`}
-                >
-                  {r}
-                </button>
-              ))}
+          {/* Ratio Row & Actions */}
+          <div className="flex items-center justify-between mt-1">
+            <div className="flex items-center gap-2 text-xs">
+              <span className="font-semibold text-slate-300">Ratio</span>
+              <div className="flex items-center gap-1">
+                {(['Auto', '1:1', '16:9', '4:5'] as CanvasRatio[]).map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => setCanvasRatio(r)}
+                    className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
+                      canvasRatio === r
+                        ? 'bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] !text-black shadow-md font-black'
+                        : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50'
+                    }`}
+                  >
+                    <span className={canvasRatio === r ? '!text-black font-black' : ''}>{r}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
-        </div>
 
-        {/* Footer Actions */}
-        <div className="flex items-center justify-between p-4 bg-slate-950/90 border-t border-slate-800">
-          <button
-            type="button"
-            onClick={handleReset}
-            className="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center gap-1.5 transition-colors border border-slate-700"
-          >
-            <RotateCcw size={13} />
-            <span>Reset</span>
-          </button>
-
-          <div className="flex items-center gap-2">
             <button
               type="button"
-              onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors"
+              onClick={handleReset}
+              className="text-xs font-semibold text-[#86efac] hover:text-[#4ade80] underline underline-offset-2 cursor-pointer"
             >
-              Batal
+              Reset
             </button>
+          </div>
 
+          {/* Apply Button */}
+          <div className="flex items-center justify-end gap-2 pt-1">
             <button
               type="button"
               onClick={handleSave}
               disabled={isProcessing}
-              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white text-xs font-bold shadow-lg shadow-pink-500/20 flex items-center gap-1.5 transition-all disabled:opacity-50"
+              className="w-full sm:w-auto px-7 py-2.5 rounded-xl bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] !text-black text-xs font-black transition-all shadow-lg shadow-[#22c55e]/25 active:scale-98 disabled:opacity-50 cursor-pointer"
             >
-              <Check size={14} />
-              <span>{isProcessing ? 'Menyimpan...' : 'Save with Background'}</span>
+              {isProcessing ? 'Menyimpan...' : 'Apply Background'}
             </button>
           </div>
         </div>

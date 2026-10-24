@@ -1,4 +1,5 @@
 import { ConversionRequest, ConversionResponse } from '../types';
+import { triggerBrowserDownload } from '../utils/fileHelpers';
 
 export async function executeFileConversion(request: ConversionRequest): Promise<ConversionResponse> {
   // 1. If running inside Electron desktop app with native backend
@@ -60,12 +61,7 @@ export async function executeFileConversion(request: ConversionRequest): Promise
         const downloadUrl = URL.createObjectURL(pdfBlob);
         const outputName = `${baseName}.pdf`;
 
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = outputName;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        triggerBrowserDownload(downloadUrl, outputName);
         URL.revokeObjectURL(objectUrl);
 
         return { success: true, outputName, downloadUrl };
@@ -84,12 +80,7 @@ export async function executeFileConversion(request: ConversionRequest): Promise
       const outputName = `${baseName}.${targetExt}`;
 
       // In browser preview, trigger immediate download
-      const a = document.createElement('a');
-      a.href = downloadUrl;
-      a.download = outputName;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
+      triggerBrowserDownload(downloadUrl, outputName);
 
       return {
         success: true,

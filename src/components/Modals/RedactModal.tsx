@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, EyeOff, RotateCcw, Check, Undo, ShieldAlert } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
+import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
 interface RedactModalProps {
   fileInfo: DroppedFileInfo;
@@ -17,7 +18,7 @@ interface RedactRect {
 }
 
 export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onSuccess }) => {
-  const [imageSrc, setImageSrc] = useState<string>('');
+  const imageSrc = useFilePreview(fileInfo);
   const [rects, setRects] = useState<RedactRect[]>([]);
   const [isDrawing, setIsDrawing] = useState(false);
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
@@ -26,27 +27,6 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImgRef = useRef<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    let active = true;
-
-    async function loadImg() {
-      if (fileInfo.file) {
-        const url = URL.createObjectURL(fileInfo.file);
-        if (active) setImageSrc(url);
-      } else if (window.electronAPI && typeof window.electronAPI.readFileBase64 === 'function') {
-        const res = await window.electronAPI.readFileBase64(fileInfo.path);
-        if (active && res.success && res.dataUrl) {
-          setImageSrc(res.dataUrl);
-        }
-      }
-    }
-
-    loadImg();
-    return () => {
-      active = false;
-    };
-  }, [fileInfo]);
 
   useEffect(() => {
     if (!imageSrc) return;
@@ -146,37 +126,15 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
       const base64Data = canvas.toDataURL('image/png');
       const ext = fileInfo.extension.replace(/^\./, '') || 'png';
 
-      if (window.electronAPI && typeof window.electronAPI.saveBase64Image === 'function') {
-        const res = await window.electronAPI.saveBase64Image({
-          sourceFilePath: fileInfo.path,
-          base64Data,
-          suffix: 'Redacted',
-          ext,
-        });
-
-        if (res.success) {
-          onSuccess(res);
-          onClose();
-        } else {
-          alert('Failed to save redacted file: ' + res.error);
-        }
-      } else {
-        const baseName = fileInfo.name.replace(/\.[^.]+$/, '');
-        const outputName = `${baseName} Redacted.${ext}`;
-        const link = document.createElement('a');
-        link.download = outputName;
-        link.href = base64Data;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        onSuccess({
-          success: true,
-          outputName,
-          downloadUrl: base64Data,
-        });
-        onClose();
-      }
+      await saveEditedImage({
+        fileInfo,
+        dataUrl: base64Data,
+        suffix: 'Redacted',
+        ext,
+        message: 'Saved redacted file successfully',
+        onSuccess,
+        onClose,
+      });
     } catch (err: any) {
       alert('Error saving: ' + err.message);
     } finally {
@@ -195,16 +153,24 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
         initial={{ scale: 0.92, y: 10 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.92, y: 10 }}
-        className="relative w-full max-w-xl bg-slate-900/95 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-xl rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          background: 'radial-gradient(135deg, #1e293b 0%, #0a0f1d 100%)',
+          border: '2px solid #94a3b8',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(34, 197, 94, 0.25)',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/40">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-red-500/20 border border-red-500/30 flex items-center justify-center text-red-400">
+            <div className="w-7 h-7 rounded-lg bg-[#22c55e]/20 border border-[#22c55e]/40 flex items-center justify-center text-[#4ade80]">
               <EyeOff size={15} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">Redact & Sensor Sensitive Area</h2>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
+                <h2 className="text-sm font-black text-white tracking-tight">Redact &amp; Sensor Sensitive Area</h2>
+              </div>
               <p className="text-[10px] text-slate-400">Tarik kotak hitam di atas area yang ingin disensor</p>
             </div>
           </div>
@@ -240,7 +206,7 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
             </button>
           </div>
 
-          <span className="text-[11px] text-slate-400 font-mono">
+          <span className="text-[11px] text-[#86efac] font-mono font-bold">
             {rects.length} area disensor
           </span>
         </div>
@@ -270,10 +236,10 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
             type="button"
             onClick={handleSave}
             disabled={isProcessing || rects.length === 0}
-            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white text-xs font-bold shadow-lg shadow-red-500/20 flex items-center gap-1.5 transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] !text-black text-xs font-black shadow-lg shadow-[#22c55e]/25 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
           >
-            <Check size={14} />
-            <span>{isProcessing ? 'Menyimpan...' : 'Simpan Sensor'}</span>
+            <Check size={14} className="!text-black" />
+            <span className="!text-black">{isProcessing ? 'Menyimpan...' : 'Simpan Sensor'}</span>
           </button>
         </div>
       </motion.div>

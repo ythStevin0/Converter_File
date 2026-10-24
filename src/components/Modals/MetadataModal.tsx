@@ -87,16 +87,24 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
         initial={{ scale: 0.92, y: 10 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.92, y: 10 }}
-        className="relative w-full max-w-md bg-slate-900/95 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        className="relative w-full max-w-md rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        style={{
+          background: 'radial-gradient(135deg, #1e293b 0%, #0a0f1d 100%)',
+          border: '2px solid #94a3b8',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(34, 197, 94, 0.25)',
+        }}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/40">
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/60">
           <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400">
+            <div className="w-7 h-7 rounded-lg bg-[#22c55e]/20 border border-[#22c55e]/40 flex items-center justify-center text-[#4ade80]">
               <Info size={15} />
             </div>
             <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">File & EXIF Metadata</h2>
+              <div className="flex items-center gap-1.5">
+                <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
+                <h2 className="text-sm font-black text-white tracking-tight">File & EXIF Metadata</h2>
+              </div>
               <p className="text-[10px] text-slate-400">{fileInfo.name}</p>
             </div>
           </div>
@@ -113,7 +121,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
         <div className="p-5 flex flex-col gap-4">
           {isLoading ? (
             <div className="p-8 text-center text-xs text-slate-400 flex flex-col items-center gap-2">
-              <div className="w-6 h-6 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+              <div className="w-6 h-6 border-2 border-[#22c55e] border-t-transparent rounded-full animate-spin" />
               <span>Memindai metadata file...</span>
             </div>
           ) : (
@@ -159,8 +167,8 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
               </div>
 
               {/* Privacy Warning */}
-              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-300">
-                <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+              <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-[#22c55e]/10 border border-[#22c55e]/30 text-[#86efac]">
+                <AlertCircle size={16} className="text-[#4ade80] shrink-0 mt-0.5" />
                 <p className="text-[11px] leading-relaxed">
                   File asli mungkin menyimpan riwayat lokasi GPS, merk kamera, dan tanggal pembuatan. Anda dapat menghapusnya untuk menjaga privasi.
                 </p>
@@ -183,10 +191,10 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
             type="button"
             onClick={handleStripMetadata}
             disabled={isStripping}
-            className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-600 hover:to-purple-700 text-white text-xs font-bold shadow-lg shadow-indigo-500/20 flex items-center gap-1.5 transition-all disabled:opacity-50"
+            className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] !text-black text-xs font-black shadow-lg shadow-[#22c55e]/25 flex items-center gap-1.5 transition-all disabled:opacity-50 cursor-pointer"
           >
-            <ShieldCheck size={14} />
-            <span>{isStripping ? 'Menghapus...' : 'Hapus EXIF & Bersihkan'}</span>
+            <ShieldCheck size={14} className="!text-black" />
+            <span className="!text-black">{isStripping ? 'Menghapus...' : 'Hapus EXIF & Bersihkan'}</span>
           </button>
         </div>
       </motion.div>

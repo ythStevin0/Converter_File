@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Crop as CropIcon, RotateCcw, Check, Move, Maximize2 } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
+import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
 interface CropModalProps {
   fileInfo: DroppedFileInfo;
@@ -12,7 +13,7 @@ interface CropModalProps {
 type AspectRatioPreset = 'Free' | '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
 
 export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSuccess }) => {
-  const [imageSrc, setImageSrc] = useState<string>('');
+  const imageSrc = useFilePreview(fileInfo);
   const [aspectRatio, setAspectRatio] = useState<AspectRatioPreset>('Free');
   const [naturalSize, setNaturalSize] = useState<{ width: number; height: number }>({ width: 0, height: 0 });
   const [cropRect, setCropRect] = useState<{ x: number; y: number; width: number; height: number }>({
@@ -29,29 +30,6 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
 
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
-
-  // Load preview image safely
-  useEffect(() => {
-    let active = true;
-
-    async function loadPreview() {
-      if (fileInfo.file) {
-        const url = URL.createObjectURL(fileInfo.file);
-        if (active) setImageSrc(url);
-      } else if (window.electronAPI && typeof window.electronAPI.readFileBase64 === 'function') {
-        const res = await window.electronAPI.readFileBase64(fileInfo.path);
-        if (active && res.success && res.dataUrl) {
-          setImageSrc(res.dataUrl);
-        }
-      }
-    }
-
-    loadPreview();
-
-    return () => {
-      active = false;
-    };
-  }, [fileInfo]);
 
   // When image loads, initialize crop rectangle to 80% of centered image
   const handleImageLoaded = () => {
@@ -197,38 +175,15 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
       const base64Data = canvas.toDataURL('image/png');
       const ext = fileInfo.extension.replace(/^\./, '') || 'png';
 
-      // 1. If running inside Electron desktop app
-      if (window.electronAPI && typeof window.electronAPI.saveBase64Image === 'function') {
-        const res = await window.electronAPI.saveBase64Image({
-          sourceFilePath: fileInfo.path,
-          base64Data,
-          suffix: 'Cropped',
-          ext,
-        });
-        if (res.success) {
-          onSuccess(res);
-          onClose();
-        } else {
-          alert('Crop failed: ' + res.error);
-        }
-      } else {
-        // 2. Browser fallback: trigger immediate direct download
-        const link = document.createElement('a');
-        const baseName = fileInfo.name.replace(/\.[^.]+$/, '');
-        const outputName = `${baseName} Cropped.${ext}`;
-        link.download = outputName;
-        link.href = base64Data;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-
-        onSuccess({
-          success: true,
-          outputName,
-          downloadUrl: base64Data,
-        });
-        onClose();
-      }
+      await saveEditedImage({
+        fileInfo,
+        dataUrl: base64Data,
+        suffix: 'Cropped',
+        ext,
+        message: 'Image cropped successfully',
+        onSuccess,
+        onClose,
+      });
     } catch (err: any) {
       alert('Error cropping image: ' + err.message);
     } finally {
@@ -241,63 +196,62 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl select-none"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md select-none"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
     >
       <motion.div
-        initial={{ scale: 0.92, y: 10 }}
+        initial={{ scale: 0.94, y: 12 }}
         animate={{ scale: 1, y: 0 }}
-        exit={{ scale: 0.92, y: 10 }}
-        className="relative w-full max-w-xl bg-slate-900/90 border border-slate-700/80 rounded-3xl shadow-2xl overflow-hidden flex flex-col"
+        exit={{ scale: 0.94, y: 12 }}
+        transition={{ type: 'spring', stiffness: 450, damping: 30 }}
+        className="relative w-full max-w-md rounded-[28px] shadow-2xl overflow-hidden flex flex-col p-5"
+        style={{
+          background: 'radial-gradient(135deg, #1e293b 0%, #0a0f1d 100%)',
+          border: '2px solid #94a3b8',
+          boxShadow: '0 25px 60px rgba(0, 0, 0, 0.9), 0 0 30px rgba(34, 197, 94, 0.25), inset 0 1px 2px rgba(255, 255, 255, 0.2)',
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-800 bg-slate-950/40">
-          <div className="flex items-center gap-2.5">
-            <div className="w-7 h-7 rounded-lg bg-orange-500/20 border border-orange-500/30 flex items-center justify-center text-orange-400">
-              <CropIcon size={15} />
-            </div>
-            <div>
-              <h2 className="text-sm font-bold text-white tracking-tight">Crop Image</h2>
-              <p className="text-[10px] text-slate-400">{fileInfo.name}</p>
-            </div>
-          </div>
+        {/* Top Header (Close button on Left, Centered Title with Silver Rivet) */}
+        <div className="relative flex items-center justify-center mb-3">
           <button
             type="button"
             onClick={onClose}
-            className="w-7 h-7 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition-colors"
+            className="absolute left-0 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-600 flex items-center justify-center transition-colors font-bold cursor-pointer"
           >
-            <X size={15} />
+            <X size={15} strokeWidth={2.4} />
           </button>
+          <div className="flex items-center gap-1.5">
+            <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
+            <h2 className="text-base font-black text-white tracking-tight">Crop Image</h2>
+          </div>
         </div>
 
         {/* Aspect Ratio Selector */}
-        <div className="flex items-center justify-between px-5 py-2.5 bg-slate-950/20 border-b border-slate-800/60 overflow-x-auto gap-2">
-          <span className="text-[11px] font-medium text-slate-400 flex items-center gap-1 shrink-0">
-            <Maximize2 size={12} className="text-orange-400" /> Rasio:
-          </span>
+        <div className="flex items-center justify-between mb-3 px-1 text-xs">
+          <span className="font-semibold text-slate-300">Aspect ratio</span>
           <div className="flex items-center gap-1.5">
             {(['Free', '1:1', '16:9', '9:16', '4:3', '3:4'] as AspectRatioPreset[]).map((preset) => (
               <button
                 key={preset}
                 type="button"
                 onClick={() => handlePresetChange(preset)}
-                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold transition-all ${
+                className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all cursor-pointer ${
                   aspectRatio === preset
-                    ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25 border border-orange-400'
-                    : 'bg-slate-800/80 hover:bg-slate-700 text-slate-300 border border-slate-700/60'
+                    ? 'bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] !text-black shadow-md font-black'
+                    : 'text-slate-300 hover:text-white bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50'
                 }`}
               >
-                {preset}
+                <span className={aspectRatio === preset ? '!text-black font-black' : ''}>{preset}</span>
               </button>
             ))}
           </div>
         </div>
 
-        {/* Image Preview & Interactive Orange Crop Box */}
+        {/* Image Preview & Interactive Crop Box (Photo 4) */}
         <div
           ref={containerRef}
-          className="relative flex items-center justify-center p-4 bg-slate-950/60 min-h-[300px] max-h-[360px] overflow-hidden"
+          className="relative flex items-center justify-center p-3 bg-slate-950/80 rounded-2xl min-h-[220px] max-h-[290px] overflow-hidden shadow-inner border border-slate-800 mb-3"
         >
           {imageSrc ? (
             <div className="relative inline-block">
@@ -306,10 +260,10 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
                 src={imageSrc}
                 alt="Crop preview"
                 onLoad={handleImageLoaded}
-                className="max-h-[320px] max-w-full object-contain pointer-events-none rounded-lg"
+                className="max-h-[320px] max-w-full object-contain pointer-events-none rounded-lg shadow-md"
               />
 
-              {/* The Orange Crop Rectangle */}
+              {/* The Precision Crop Rectangle */}
               {imageRef.current && cropRect.width > 0 && (
                 <div
                   style={{
@@ -319,111 +273,92 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
                     height: `${cropRect.height}px`,
                   }}
                   onMouseDown={(e) => handleMouseDown(e, 'move')}
-                  className="absolute border-2 border-orange-500 shadow-2xl cursor-move bg-orange-500/10 z-10 transition-shadow"
+                  className="absolute border-2 border-[#22c55e] shadow-2xl cursor-move bg-[#22c55e]/15 z-10"
                 >
                   {/* Grid Lines */}
                   <div className="absolute inset-0 grid grid-cols-3 grid-rows-3 pointer-events-none">
-                    <div className="border-r border-b border-orange-400/25" />
-                    <div className="border-r border-b border-orange-400/25" />
-                    <div className="border-b border-orange-400/25" />
-                    <div className="border-r border-b border-orange-400/25" />
-                    <div className="border-r border-b border-orange-400/25" />
-                    <div className="border-b border-orange-400/25" />
-                    <div className="border-r border-orange-400/25" />
-                    <div className="border-r border-orange-400/25" />
+                    <div className="border-r border-b border-amber-300/30" />
+                    <div className="border-r border-b border-amber-300/30" />
+                    <div className="border-b border-amber-300/30" />
+                    <div className="border-r border-b border-amber-300/30" />
+                    <div className="border-r border-b border-amber-300/30" />
+                    <div className="border-b border-amber-300/30" />
+                    <div className="border-r border-amber-300/30" />
+                    <div className="border-r border-amber-300/30" />
                     <div />
                   </div>
 
                   {/* Corner Handles */}
                   <div
                     onMouseDown={(e) => handleMouseDown(e, 'se')}
-                    className="absolute -right-1.5 -bottom-1.5 w-3.5 h-3.5 bg-orange-500 rounded-sm cursor-se-resize shadow-md hover:scale-125 transition-transform"
+                    className="absolute -right-1.5 -bottom-1.5 w-3.5 h-3.5 bg-[#22c55e] border border-white rounded-xs cursor-se-resize shadow-md hover:scale-125 transition-transform"
                   />
                   <div
                     onMouseDown={(e) => handleMouseDown(e, 'sw')}
-                    className="absolute -left-1.5 -bottom-1.5 w-3.5 h-3.5 bg-orange-500 rounded-sm cursor-sw-resize shadow-md hover:scale-125 transition-transform"
+                    className="absolute -left-1.5 -bottom-1.5 w-3.5 h-3.5 bg-[#22c55e] border border-white rounded-xs cursor-sw-resize shadow-md hover:scale-125 transition-transform"
                   />
                   <div
                     onMouseDown={(e) => handleMouseDown(e, 'ne')}
-                    className="absolute -right-1.5 -top-1.5 w-3.5 h-3.5 bg-orange-500 rounded-sm cursor-ne-resize shadow-md hover:scale-125 transition-transform"
+                    className="absolute -right-1.5 -top-1.5 w-3.5 h-3.5 bg-[#22c55e] border border-white rounded-xs cursor-ne-resize shadow-md hover:scale-125 transition-transform"
                   />
                   <div
                     onMouseDown={(e) => handleMouseDown(e, 'nw')}
-                    className="absolute -left-1.5 -top-1.5 w-3.5 h-3.5 bg-orange-500 rounded-sm cursor-nw-resize shadow-md hover:scale-125 transition-transform"
+                    className="absolute -left-1.5 -top-1.5 w-3.5 h-3.5 bg-[#22c55e] border border-white rounded-xs cursor-nw-resize shadow-md hover:scale-125 transition-transform"
                   />
 
                   {/* Center Drag Icon */}
-                  <div className="absolute inset-0 flex items-center justify-center opacity-40 hover:opacity-100 transition-opacity pointer-events-none">
-                    <Move size={16} className="text-orange-300 drop-shadow" />
+                  <div className="absolute inset-0 flex items-center justify-center opacity-30 hover:opacity-90 transition-opacity pointer-events-none">
+                    <Move size={15} className="text-amber-200 drop-shadow" />
                   </div>
                 </div>
               )}
             </div>
           ) : (
-            <div className="text-xs text-slate-500 flex items-center gap-2">
-              <span className="animate-spin">🌀</span> Memuat gambar...
+            <div className="text-xs text-zinc-500 font-mono">
+              Memuat gambar...
             </div>
           )}
         </div>
 
-        {/* Pixel Size Manual Controls & Bottom Actions */}
-        <div className="flex flex-col sm:flex-row items-center justify-between p-4 bg-slate-950/80 border-t border-slate-800 gap-3">
-          {/* Manual W x H */}
+        {/* Pixel Size Manual Controls & Reset (Photo 4) */}
+        <div className="flex items-center justify-between mb-4 px-1 text-xs">
           <div className="flex items-center gap-2">
-            <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 px-2 py-1 rounded-xl">
-              <span className="text-[11px] font-mono text-slate-400">W:</span>
-              <input
-                type="number"
-                value={pixelW}
-                onChange={(e) => handlePixelWChange(parseInt(e.target.value) || 0)}
-                className="w-16 bg-transparent text-[12px] font-mono font-bold text-white focus:outline-none text-right"
-              />
-              <span className="text-[10px] text-slate-500 font-mono">px</span>
-            </div>
-
-            <span className="text-slate-600 text-xs">&times;</span>
-
-            <div className="flex items-center gap-1.5 bg-slate-800/80 border border-slate-700 px-2 py-1 rounded-xl">
-              <span className="text-[11px] font-mono text-slate-400">H:</span>
-              <input
-                type="number"
-                value={pixelH}
-                onChange={(e) => handlePixelHChange(parseInt(e.target.value) || 0)}
-                className="w-16 bg-transparent text-[12px] font-mono font-bold text-white focus:outline-none text-right"
-              />
-              <span className="text-[10px] text-slate-500 font-mono">px</span>
-            </div>
-
-            <button
-              type="button"
-              onClick={handleReset}
-              className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors border border-slate-700"
-              title="Reset Crop"
-            >
-              <RotateCcw size={14} />
-            </button>
+            <span className="font-semibold text-stone-900">W</span>
+            <input
+              type="number"
+              value={pixelW}
+              onChange={(e) => handlePixelWChange(parseInt(e.target.value) || 0)}
+              className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 text-white rounded-lg text-xs font-mono font-bold focus:border-[#22c55e] focus:outline-none shadow-xs text-center"
+            />
+            <span className="font-semibold text-stone-900 ml-1">H</span>
+            <input
+              type="number"
+              value={pixelH}
+              onChange={(e) => handlePixelHChange(parseInt(e.target.value) || 0)}
+              className="w-16 px-2 py-1 bg-slate-900 border border-slate-700 text-white rounded-lg text-xs font-mono font-bold focus:border-[#22c55e] focus:outline-none shadow-xs text-center"
+            />
+            <span className="text-stone-800 font-mono text-[11px] ml-0.5">px</span>
           </div>
 
-          {/* Action Buttons */}
-          <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
-            <button
-              type="button"
-              onClick={onClose}
-              className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-300 border border-slate-700 transition-colors"
-            >
-              Batal
-            </button>
+          <button
+            type="button"
+            onClick={handleReset}
+            className="text-xs font-semibold text-[#86efac] hover:text-[#4ade80] underline underline-offset-2 cursor-pointer"
+          >
+            Reset
+          </button>
+        </div>
 
-            <button
-              type="button"
-              onClick={handleApplyCrop}
-              disabled={isProcessing}
-              className="px-4 py-1.5 rounded-xl bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white text-xs font-bold shadow-lg shadow-orange-500/20 flex items-center gap-1.5 transition-all disabled:opacity-50"
-            >
-              <Check size={14} />
-              <span>{isProcessing ? 'Memproses...' : 'Apply Crop'}</span>
-            </button>
-          </div>
+        {/* Bottom Actions (Photo 4) */}
+        <div className="flex items-center justify-end gap-2 pt-1">
+          <button
+            type="button"
+            onClick={handleApplyCrop}
+            disabled={isProcessing}
+            className="w-full sm:w-auto px-7 py-2.5 rounded-xl bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] !text-black text-xs font-black transition-all shadow-lg shadow-[#22c55e]/25 active:scale-98 disabled:opacity-50 cursor-pointer"
+          >
+            {isProcessing ? 'Memotong...' : 'Apply Crop'}
+          </button>
         </div>
       </motion.div>
     </motion.div>
