@@ -2,72 +2,78 @@ import { app, BrowserWindow, ipcMain, shell, Tray, Menu, screen, globalShortcut 
 import path from 'path';
 import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
-import sharp from 'sharp';
+import sharp, { type FormatEnum } from 'sharp';
 import { PDFDocument } from 'pdf-lib';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const WIN_W = 650;
+const WIN_H = 700;
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tiff', '.bmp', '.gif'];
+const IMG_QUALITY: Record<string, object> = { jpeg: { quality: 90 }, webp: { quality: 85 }, avif: { quality: 80 } };
 
 let mainWindow: BrowserWindow | null = null;
-let tray: Tray | null = null;
+let tray: Tray | null = null; // harus disimpan di variabel agar tidak di-garbage-collect
 let isQuitting = false;
 
-// Pure Node.js BMP 24-bit RGB encoder (zero external dependency)
-function encodeBmp(width: number, height: number, rgbaBuffer: Buffer): Buffer {
-  const rowSize = Math.floor((24 * width + 31) / 32) * 4;
-  const pixelArraySize = rowSize * height;
-  const fileSize = 54 + pixelArraySize;
-  const buf = Buffer.alloc(fileSize);
+// ---------- Helpers ----------
 
-  // File Header (14 bytes)
+// Path file baru di folder yang sama dengan file sumber
+const outPath = (src: string, suffix = '', ext = path.extname(src)) => {
+  const { dir, name } = path.parse(src);
+  return path.join(dir, `${name}${suffix}${ext}`);
+};
+const done = (outputPath: string) => ({ outputPath, outputName: path.basename(outputPath) });
+
+// Bungkus handler IPC: otomatis { success: true, ...hasil } atau { success: false, error }
+const handle = (channel: string, fn: (req: any) => Promise<object>) =>
+  ipcMain.handle(channel, async (_event, req) => {
+    try {
+      return { success: true, ...(await fn(req)) };
+    } catch (err: any) {
+      console.error(`[${channel}]`, err);
+      return { success: false, error: err.message || 'Unknown error' };
+    }
+  });
+
+// BMP 24-bit top-down dari buffer RGB (3 channel), tanpa dependency tambahan
+function encodeBmp(w: number, h: number, rgb: Buffer): Buffer {
+  const rowSize = Math.ceil((w * 3) / 4) * 4;
+  const buf = Buffer.alloc(54 + rowSize * h);
   buf.write('BM', 0);
-  buf.writeUInt32LE(fileSize, 2);
-  buf.writeUInt32LE(54, 10);
-
-  // DIB Header (40 bytes - BITMAPINFOHEADER)
-  buf.writeUInt32LE(40, 14);
-  buf.writeInt32LE(width, 18);
-  buf.writeInt32LE(-height, 22); // Top-down
+  buf.writeUInt32LE(buf.length, 2);
+  buf.writeUInt32LE(54, 10); // offset pixel data
+  buf.writeUInt32LE(40, 14); // BITMAPINFOHEADER
+  buf.writeInt32LE(w, 18);
+  buf.writeInt32LE(-h, 22);
   buf.writeUInt16LE(1, 26);
   buf.writeUInt16LE(24, 28);
-  buf.writeUInt32LE(0, 30);
-  buf.writeUInt32LE(pixelArraySize, 34);
+  buf.writeUInt32LE(rowSize * h, 34);
   buf.writeInt32LE(2835, 38);
   buf.writeInt32LE(2835, 42);
-
-  // Pixels (convert RGBA to BGR top-down with row padding)
-  for (let y = 0; y < height; y++) {
-    const rowOffset = 54 + y * rowSize;
-    for (let x = 0; x < width; x++) {
-      const srcIdx = (y * width + x) * 4;
-      const r = rgbaBuffer[srcIdx];
-      const g = rgbaBuffer[srcIdx + 1];
-      const b = rgbaBuffer[srcIdx + 2];
-      const dstIdx = rowOffset + x * 3;
-      buf[dstIdx] = b;
-      buf[dstIdx + 1] = g;
-      buf[dstIdx + 2] = r;
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const s = (y * w + x) * 3;
+      const d = 54 + y * rowSize + x * 3;
+      buf[d] = rgb[s + 2];
+      buf[d + 1] = rgb[s + 1];
+      buf[d + 2] = rgb[s];
     }
   }
   return buf;
 }
 
-function createWindow() {
-  const primaryDisplay = screen.getPrimaryDisplay();
-  const { width, height } = primaryDisplay.workAreaSize;
+// ---------- Window & Tray ----------
 
+function createWindow() {
   mainWindow = new BrowserWindow({
-    width: 650,
-    height: 700,
-    x: Math.round((width - 650) / 2),
-    y: Math.round((height - 700) / 2),
+    width: WIN_W,
+    height: WIN_H,
+    center: true,
     transparent: true,
     frame: false,
     alwaysOnTop: true,
     resizable: false,
     hasShadow: false,
-    show: true,
-    skipTaskbar: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -75,446 +81,208 @@ function createWindow() {
     },
   });
 
-  const devUrl = process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173';
-
-  if (process.env.NODE_ENV === 'development' || !app.isPackaged) {
-    mainWindow.loadURL(devUrl);
-  } else {
+  if (app.isPackaged) {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+  } else {
+    mainWindow.loadURL(process.env.VITE_DEV_SERVER_URL || 'http://localhost:5173');
   }
 
-  // Prevent app from quitting when window is closed, minimize to tray
+  // Tombol close hanya menyembunyikan window (app tetap hidup di tray)
   mainWindow.on('close', (event) => {
     if (!isQuitting) {
       event.preventDefault();
       mainWindow?.hide();
     }
   });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
-  });
 }
 
 function showWindowAtCursor() {
-  if (!mainWindow) {
-    createWindow();
-    return;
-  }
+  if (!mainWindow) return createWindow();
 
-  const cursorPoint = screen.getCursorScreenPoint();
-  const currentDisplay = screen.getDisplayNearestPoint(cursorPoint);
-  const bounds = currentDisplay.workArea;
+  const cursor = screen.getCursorScreenPoint();
+  const { x, y, width, height } = screen.getDisplayNearestPoint(cursor).workArea;
+  const clamp = (v: number, min: number, max: number) => Math.max(min, Math.min(v, max));
 
-  const winWidth = 650;
-  const winHeight = 700;
-
-  // Center around cursor, bounded by screen dimensions
-  let newX = Math.round(cursorPoint.x - winWidth / 2);
-  let newY = Math.round(cursorPoint.y - winHeight / 2);
-
-  newX = Math.max(bounds.x, Math.min(newX, bounds.x + bounds.width - winWidth));
-  newY = Math.max(bounds.y, Math.min(newY, bounds.y + bounds.height - winHeight));
-
-  mainWindow.setPosition(newX, newY);
+  mainWindow.setPosition(
+    clamp(Math.round(cursor.x - WIN_W / 2), x, x + width - WIN_W),
+    clamp(Math.round(cursor.y - WIN_H / 2), y, y + height - WIN_H),
+  );
   mainWindow.show();
   mainWindow.focus();
 }
 
+const toggleWindow = () => (mainWindow?.isVisible() ? mainWindow.hide() : showWindowAtCursor());
+
 function createTray() {
-  const trayIconPath = path.join(__dirname, '../assets/tray.png');
-  tray = new Tray(trayIconPath);
-
-  const contextMenu = Menu.buildFromTemplate([
-    {
-      label: 'Buka OrbitDrop',
-      click: () => {
-        if (mainWindow) {
-          mainWindow.show();
-          mainWindow.focus();
-        } else {
-          createWindow();
-        }
-      },
-    },
-    {
-      label: 'Shortcut: Alt+Space',
-      enabled: false,
-    },
-    { type: 'separator' },
-    {
-      label: 'Keluar (Quit)',
-      click: () => {
-        isQuitting = true;
-        app.quit();
-      },
-    },
-  ]);
-
+  tray = new Tray(path.join(__dirname, '../assets/tray.png'));
   tray.setToolTip('OrbitDrop — Contextual File Converter (Local Engine)');
-  tray.setContextMenu(contextMenu);
-
-  tray.on('click', () => {
-    if (mainWindow?.isVisible()) {
-      mainWindow.hide();
-    } else {
-      showWindowAtCursor();
-    }
-  });
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Buka OrbitDrop', click: showWindowAtCursor },
+      { label: 'Shortcut: Alt+Space', enabled: false },
+      { type: 'separator' },
+      { label: 'Keluar (Quit)', click: () => app.quit() },
+    ]),
+  );
+  tray.on('click', toggleWindow);
 }
 
 app.whenReady().then(() => {
   createWindow();
   createTray();
-
-  // Register Global Shortcut to toggle OrbitDrop anywhere on OS
-  globalShortcut.register('Alt+Space', () => {
-    if (mainWindow?.isVisible()) {
-      mainWindow.hide();
-    } else {
-      showWindowAtCursor();
-    }
-  });
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+  globalShortcut.register('Alt+Space', toggleWindow);
+  app.on('activate', showWindowAtCursor);
 });
 
-app.on('will-quit', () => {
-  globalShortcut.unregisterAll();
+app.on('before-quit', () => {
+  isQuitting = true;
 });
+app.on('will-quit', () => globalShortcut.unregisterAll());
 
-app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    // Keep alive in tray
-  }
-});
+// ---------- IPC: window ----------
 
-// Window controls
-ipcMain.on('hide-window', () => {
-  if (mainWindow) mainWindow.hide();
-});
-
-ipcMain.on('show-window', () => {
-  if (mainWindow) mainWindow.show();
-});
-
+ipcMain.on('hide-window', () => mainWindow?.hide());
+ipcMain.on('show-window', () => mainWindow?.show());
 ipcMain.handle('open-in-folder', async (_event, filePath: string) => {
-  if (filePath) {
-    shell.showItemInFolder(filePath);
-  }
+  if (filePath) shell.showItemInFolder(filePath);
 });
 
-// Read file as base64 for safe renderer preview
-ipcMain.handle('read-file-base64', async (_event, filePath: string) => {
-  try {
-    const buf = await fs.readFile(filePath);
-    const ext = path.extname(filePath).toLowerCase().replace('.', '');
-    const mime = ext === 'jpg' || ext === 'jpeg' ? 'image/jpeg' : `image/${ext}`;
-    const dataUrl = `data:${mime};base64,${buf.toString('base64')}`;
-    return { success: true, dataUrl };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to read file' };
-  }
+// ---------- IPC: file & image tools ----------
+
+// Baca file sebagai data URL untuk preview di renderer
+handle('read-file-base64', async (filePath: string) => {
+  const ext = path.extname(filePath).slice(1).toLowerCase().replace('jpg', 'jpeg');
+  const buf = await fs.readFile(filePath);
+  return { dataUrl: `data:image/${ext};base64,${buf.toString('base64')}` };
 });
 
-// Save base64 image (from Crop, AddBG, Redact, Annotate modals)
-ipcMain.handle('save-base64-image', async (_event, request: {
+// Simpan hasil edit dari modal (Crop, AddBG, Redact, Annotate)
+handle('save-base64-image', async ({ sourceFilePath, base64Data, suffix, ext = 'png' }: {
   sourceFilePath: string;
   base64Data: string;
   suffix: string;
   ext?: string;
 }) => {
-  try {
-    const { sourceFilePath, base64Data, suffix, ext = 'png' } = request;
-    const dir = path.dirname(sourceFilePath);
-    const originalExt = path.extname(sourceFilePath);
-    const baseName = path.basename(sourceFilePath, originalExt);
-    const outputName = `${baseName} ${suffix}.${ext.replace(/^\./, '')}`;
-    const outputFilePath = path.join(dir, outputName);
-
-    const cleanBase64 = base64Data.replace(/^data:image\/\w+;base64,/, '');
-    const buffer = Buffer.from(cleanBase64, 'base64');
-    await fs.writeFile(outputFilePath, buffer);
-
-    return {
-      success: true,
-      outputPath: outputFilePath,
-      outputName,
-    };
-  } catch (err: any) {
-    console.error('[save-base64-image] Error:', err);
-    return { success: false, error: err.message || 'Failed to save image' };
-  }
+  const out = outPath(sourceFilePath, ` ${suffix}`, `.${ext.replace(/^\./, '')}`);
+  await fs.writeFile(out, Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+  return done(out);
 });
 
-// Inspect Metadata (EXIF, format, dimensions, size)
-ipcMain.handle('get-metadata', async (_event, filePath: string) => {
-  try {
-    const stat = await fs.stat(filePath);
-    const ext = path.extname(filePath).toLowerCase();
-    const isImage = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tiff', '.bmp', '.gif'].includes(ext);
+// Metadata file (+ info gambar via sharp)
+handle('get-metadata', async (filePath: string) => {
+  const { size } = await fs.stat(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const data: Record<string, unknown> = {
+    fileSizeBytes: size,
+    formattedSize: (size / (1024 * 1024)).toFixed(2) + ' MB',
+    format: ext.slice(1).toUpperCase(),
+  };
 
-    let metadata: any = {
-      fileSizeBytes: stat.size,
-      formattedSize: (stat.size / (1024 * 1024)).toFixed(2) + ' MB',
-      format: ext.replace('.', '').toUpperCase(),
-    };
-
-    if (isImage) {
-      const sharpMeta = await sharp(filePath).metadata();
-      metadata = {
-        ...metadata,
-        format: sharpMeta.format?.toUpperCase(),
-        width: sharpMeta.width,
-        height: sharpMeta.height,
-        space: sharpMeta.space,
-        channels: sharpMeta.channels,
-        depth: sharpMeta.depth,
-        density: sharpMeta.density,
-        hasAlpha: sharpMeta.hasAlpha,
-        hasProfile: sharpMeta.hasProfile,
-        exifTags: sharpMeta.exif ? { hasExif: true, bufferLength: sharpMeta.exif.length } : undefined,
-      };
-    }
-
-    return { success: true, data: metadata };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to inspect metadata' };
+  if (IMAGE_EXTS.includes(ext)) {
+    const { format, width, height, space, channels, depth, density, hasAlpha, hasProfile, exif } =
+      await sharp(filePath).metadata();
+    Object.assign(data, {
+      format: format?.toUpperCase(),
+      width, height, space, channels, depth, density, hasAlpha, hasProfile,
+      exifTags: exif ? { hasExif: true, bufferLength: exif.length } : undefined,
+    });
   }
+  return { data };
 });
 
-// Strip EXIF / sensitive metadata
-ipcMain.handle('strip-metadata', async (_event, filePath: string) => {
-  try {
-    const dir = path.dirname(filePath);
-    const originalExt = path.extname(filePath);
-    const baseName = path.basename(filePath, originalExt);
-    const outputName = `${baseName} Clean${originalExt}`;
-    const outputFilePath = path.join(dir, outputName);
-
-    // In sharp, not calling .withMetadata() automatically strips all EXIF, XMP, IPTC, and thumbnail data
-    await sharp(filePath).toFile(outputFilePath);
-
-    return {
-      success: true,
-      outputPath: outputFilePath,
-      outputName,
-    };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Failed to strip metadata' };
-  }
+// Sharp otomatis membuang EXIF/XMP/IPTC selama .withMetadata() tidak dipanggil
+handle('strip-metadata', async (filePath: string) => {
+  const out = outPath(filePath, ' Clean');
+  await sharp(filePath).toFile(out);
+  return done(out);
 });
 
-// Smart File Compression
-ipcMain.handle('compress-image', async (_event, request: {
+handle('compress-image', async ({ sourceFilePath: src, quality = 65 }: {
   sourceFilePath: string;
-  quality: number;
+  quality?: number;
 }) => {
-  try {
-    const { sourceFilePath, quality = 65 } = request;
-    const statBefore = await fs.stat(sourceFilePath);
-    const dir = path.dirname(sourceFilePath);
-    const originalExt = path.extname(sourceFilePath);
-    const baseName = path.basename(sourceFilePath, originalExt);
-    const ext = originalExt.toLowerCase().replace('.', '');
-    const outputName = `${baseName} Compressed${originalExt}`;
-    const outputFilePath = path.join(dir, outputName);
+  const ext = path.extname(src).slice(1).toLowerCase();
+  const out = outPath(src, ' Compressed');
+  const img = sharp(src);
 
-    let pipeline = sharp(sourceFilePath);
+  if (ext === 'jpg' || ext === 'jpeg') img.jpeg({ quality, mozjpeg: true });
+  else if (ext === 'webp') img.webp({ quality });
+  else if (ext === 'avif') img.avif({ quality: Math.max(25, quality - 10) });
+  else img.png({ compressionLevel: 9, quality: Math.min(100, quality + 10) });
 
-    if (ext === 'jpg' || ext === 'jpeg') {
-      await pipeline.jpeg({ quality, mozjpeg: true }).toFile(outputFilePath);
-    } else if (ext === 'webp') {
-      await pipeline.webp({ quality }).toFile(outputFilePath);
-    } else if (ext === 'avif') {
-      await pipeline.avif({ quality: Math.max(25, quality - 10) }).toFile(outputFilePath);
-    } else {
-      // Default PNG / others: apply maximum compression level and quality quantisation
-      await pipeline.png({ compressionLevel: 9, quality: Math.min(100, quality + 10) }).toFile(outputFilePath);
-    }
-
-    const statAfter = await fs.stat(outputFilePath);
-
-    return {
-      success: true,
-      outputPath: outputFilePath,
-      outputName,
-      originalSize: statBefore.size,
-      newSize: statAfter.size,
-    };
-  } catch (err: any) {
-    return { success: false, error: err.message || 'Compression failed' };
-  }
+  await img.toFile(out);
+  return {
+    ...done(out),
+    originalSize: (await fs.stat(src)).size,
+    newSize: (await fs.stat(out)).size,
+  };
 });
 
-// Local Conversion Engine (Sharp + PDF-Lib + Local Processing)
-ipcMain.handle('convert-file', async (_event, request: {
+// ---------- IPC: konversi ----------
+
+handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourceCategory }: {
   sourceFilePath: string;
   targetFormatOrAction: string;
   sourceCategory: string;
 }) => {
-  const { sourceFilePath, targetFormatOrAction, sourceCategory } = request;
+  const target = targetFormatOrAction.toLowerCase();
+  const srcExt = path.extname(src).toLowerCase();
+  const out = outPath(src, '', `.${target}`);
 
-  try {
-    const dir = path.dirname(sourceFilePath);
-    const originalExt = path.extname(sourceFilePath);
-    const baseName = path.basename(sourceFilePath, originalExt);
-    const targetExt = targetFormatOrAction.toLowerCase();
+  // 1. Gambar
+  if (sourceCategory === 'image') {
+    const img = sharp(src);
 
-    const outputFileName = `${baseName}.${targetExt}`;
-    const outputFilePath = path.join(dir, outputFileName);
-
-    console.log(`[Electron Native Engine] Converting "${sourceFilePath}" to "${outputFilePath}"...`);
-
-    // Verify source exists
-    await fs.access(sourceFilePath);
-
-    // 1. Image Conversions
-    if (sourceCategory === 'image') {
-      let pipeline = sharp(sourceFilePath);
-
-      switch (targetExt) {
-        case 'png':
-          await pipeline.png().toFile(outputFilePath);
-          break;
-        case 'jpg':
-        case 'jpeg':
-          await pipeline.jpeg({ quality: 90 }).toFile(outputFilePath);
-          break;
-        case 'webp':
-          await pipeline.webp({ quality: 85 }).toFile(outputFilePath);
-          break;
-        case 'avif':
-          await pipeline.avif({ quality: 80 }).toFile(outputFilePath);
-          break;
-        case 'tiff':
-        case 'tif':
-          await pipeline.tiff().toFile(outputFilePath);
-          break;
-        case 'bmp': {
-          const { data, info } = await pipeline.raw().toBuffer({ resolveWithObject: true });
-          const bmpBuf = encodeBmp(info.width, info.height, data);
-          await fs.writeFile(outputFilePath, bmpBuf);
-          break;
-        }
-        case 'pdf': {
-          // Native Image to PDF with pdf-lib
-          const pngBuffer = await pipeline.png().toBuffer();
-          const pdfDoc = await PDFDocument.create();
-          const embeddedImg = await pdfDoc.embedPng(pngBuffer);
-          const page = pdfDoc.addPage([embeddedImg.width, embeddedImg.height]);
-          page.drawImage(embeddedImg, {
-            x: 0,
-            y: 0,
-            width: embeddedImg.width,
-            height: embeddedImg.height,
-          });
-          const pdfBytes = await pdfDoc.save();
-          await fs.writeFile(outputFilePath, pdfBytes);
-          break;
-        }
-        default:
-          await pipeline.toFile(outputFilePath);
-          break;
-      }
-
-      return {
-        success: true,
-        outputPath: outputFilePath,
-        outputName: outputFileName,
-      };
+    if (target === 'bmp') {
+      const { data, info } = await img.removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
+      await fs.writeFile(out, encodeBmp(info.width, info.height, data));
+    } else if (target === 'pdf') {
+      const pdf = await PDFDocument.create();
+      const png = await pdf.embedPng(await img.png().toBuffer());
+      pdf.addPage([png.width, png.height]).drawImage(png);
+      await fs.writeFile(out, await pdf.save());
+    } else {
+      const fmt = ({ jpg: 'jpeg', tif: 'tiff' } as Record<string, string>)[target] ?? target;
+      await img.toFormat(fmt as keyof FormatEnum, IMG_QUALITY[fmt]).toFile(out);
     }
-
-    // 2. PDF Conversions
-    if (sourceCategory === 'pdf') {
-      if (targetExt === 'txt') {
-        const pdfBytes = await fs.readFile(sourceFilePath);
-        // Extract basic ASCII/UTF text stream or structural summary
-        const content = pdfBytes.toString('utf-8');
-        // Filter readable text strings from PDF stream
-        const textMatches = content.match(/\((.*?)\)\s*Tj/g) || content.match(/\[(.*?)\]\s*TJ/g);
-        let extracted = '';
-        if (textMatches && textMatches.length > 0) {
-          extracted = textMatches
-            .map((m) => m.replace(/^[(\[]/, '').replace(/[)\]]\s*T[jJ]$/, ''))
-            .join(' ');
-        } else {
-          extracted = `[OrbitDrop PDF Reader: Extracted from ${path.basename(sourceFilePath)}]\n\nFile size: ${(pdfBytes.length / 1024).toFixed(1)} KB\nRaw stream processed successfully.`;
-        }
-        await fs.writeFile(outputFilePath, extracted, 'utf-8');
-        return {
-          success: true,
-          outputPath: outputFilePath,
-          outputName: outputFileName,
-        };
-      }
-
-      if (targetExt === 'pdf') {
-        // Just duplicate/save
-        await fs.copyFile(sourceFilePath, outputFilePath);
-        return {
-          success: true,
-          outputPath: outputFilePath,
-          outputName: outputFileName,
-        };
-      }
-    }
-
-    // 3. Document Conversions (CSV <-> JSON, TXT <-> MD)
-    if (sourceCategory === 'archive' || sourceCategory === 'document') {
-      if (originalExt.toLowerCase() === '.csv' && targetExt === 'json') {
-        const csvContent = await fs.readFile(sourceFilePath, 'utf-8');
-        const lines = csvContent.trim().split(/\r?\n/);
-        if (lines.length > 0) {
-          const headers = lines[0].split(',').map((h) => h.trim());
-          const rows = lines.slice(1).map((line) => {
-            const vals = line.split(',');
-            const obj: Record<string, string> = {};
-            headers.forEach((h, i) => {
-              obj[h] = vals[i] ? vals[i].trim() : '';
-            });
-            return obj;
-          });
-          await fs.writeFile(outputFilePath, JSON.stringify(rows, null, 2), 'utf-8');
-          return { success: true, outputPath: outputFilePath, outputName: outputFileName };
-        }
-      }
-
-      if (originalExt.toLowerCase() === '.json' && targetExt === 'csv') {
-        const jsonContent = await fs.readFile(sourceFilePath, 'utf-8');
-        const parsed = JSON.parse(jsonContent);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const headers = Object.keys(parsed[0]);
-          const csvLines = [headers.join(',')];
-          parsed.forEach((item) => {
-            csvLines.push(headers.map((h) => item[h] ?? '').join(','));
-          });
-          await fs.writeFile(outputFilePath, csvLines.join('\n'), 'utf-8');
-          return { success: true, outputPath: outputFilePath, outputName: outputFileName };
-        }
-      }
-
-      if (targetExt === 'txt' || targetExt === 'md') {
-        const content = await fs.readFile(sourceFilePath, 'utf-8');
-        await fs.writeFile(outputFilePath, content, 'utf-8');
-        return { success: true, outputPath: outputFilePath, outputName: outputFileName };
-      }
-    }
-
-    // 4. Default fallback: duplicate with new extension
-    await fs.copyFile(sourceFilePath, outputFilePath);
-    return {
-      success: true,
-      outputPath: outputFilePath,
-      outputName: outputFileName,
-    };
-  } catch (err: any) {
-    console.error('[Electron Engine] Conversion error:', err);
-    return {
-      success: false,
-      error: err.message || 'Unknown conversion error in native engine',
-    };
+    return done(out);
   }
+
+  // 2. PDF -> TXT (ekstraksi sederhana)
+  if (sourceCategory === 'pdf' && target === 'txt') {
+    const content = (await fs.readFile(src)).toString('utf-8');
+    const text = (content.match(/\((.*?)\)\s*Tj/g) || content.match(/\[(.*?)\]\s*TJ/g) || [])
+      .map((m) => m.replace(/^[(\[]/, '').replace(/[)\]]\s*T[jJ]$/, ''))
+      .join(' ');
+    await fs.writeFile(out, text || `[OrbitDrop: tidak ada teks yang bisa diekstrak dari ${path.basename(src)}]`);
+    return done(out);
+  }
+
+  // 3. CSV <-> JSON
+  if (sourceCategory === 'archive' || sourceCategory === 'document') {
+    if (srcExt === '.csv' && target === 'json') {
+      const [head, ...lines] = (await fs.readFile(src, 'utf-8')).trim().split(/\r?\n/);
+      const headers = head.split(',').map((h) => h.trim());
+      const rows = lines.map((line) => {
+        const vals = line.split(',');
+        return Object.fromEntries(headers.map((h, i) => [h, vals[i]?.trim() ?? '']));
+      });
+      await fs.writeFile(out, JSON.stringify(rows, null, 2));
+      return done(out);
+    }
+
+    if (srcExt === '.json' && target === 'csv') {
+      const data = JSON.parse(await fs.readFile(src, 'utf-8'));
+      if (Array.isArray(data) && data.length > 0) {
+        const headers = Object.keys(data[0]);
+        const lines = data.map((row) => headers.map((h) => row[h] ?? '').join(','));
+        await fs.writeFile(out, [headers.join(','), ...lines].join('\n'));
+        return done(out);
+      }
+    }
+  }
+
+  // 4. Fallback (termasuk PDF->PDF dan TXT<->MD): salin dengan ekstensi baru
+  await fs.copyFile(src, out);
+  return done(out);
 });

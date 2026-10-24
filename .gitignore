@@ -31,5 +31,8 @@ pnpm-debug.log*
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
 *.sw?
+
+# Python cache
+__pycache__/
+*.py[cod]

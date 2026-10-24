@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { UploadCloud, FileText, Image as ImageIcon, Sparkles, FolderOpen } from 'lucide-react';
+import { UploadCloud, FileText, Image as ImageIcon, FolderOpen, ArrowUpRight } from 'lucide-react';
 import { DroppedFileInfo } from '../../types';
 import { parseDroppedFile } from '../../utils/fileHelpers';
 
@@ -43,20 +43,17 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
     }
   };
 
-  // Mock presets to quickly test the PRD workflow
   const loadPreset = (name: string, ext: string, sizeBytes: number) => {
     const mockFile = new File(['mock content'], name, {
       type: ext === '.pdf' ? 'application/pdf' : 'image/jpeg',
     });
-    // Override size
     Object.defineProperty(mockFile, 'size', { value: sizeBytes });
     const parsed = parseDroppedFile(mockFile);
     onFileLoaded(parsed);
   };
 
   return (
-    <div className="flex flex-col items-center justify-center w-full max-w-xl mx-auto p-4">
-      {/* Hidden native input */}
+    <div className="flex flex-col items-center justify-center w-full max-w-lg mx-auto p-4 select-none">
       <input
         type="file"
         ref={fileInputRef}
@@ -64,58 +61,64 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
         className="hidden"
       />
 
-      {/* Interactive Drop Box */}
+      {/* Interactive Precision Drop Box */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         onClick={() => fileInputRef.current?.click()}
-        className={`w-full p-8 rounded-3xl border-2 border-dashed transition-all duration-300 flex flex-col items-center justify-center cursor-pointer backdrop-blur-xl ${
+        className={`w-full p-8 rounded-3xl border transition-all duration-200 flex flex-col items-center justify-center cursor-pointer backdrop-blur-2xl ${
           isDragOver
-            ? 'border-blue-400 bg-blue-500/15 scale-[1.02] shadow-2xl shadow-blue-500/20'
-            : 'border-slate-700/80 bg-slate-900/60 hover:border-blue-500/50 hover:bg-slate-900/80 shadow-xl'
+            ? 'border-[#22c55e] bg-[#22c55e]/15 scale-[1.01] shadow-2xl shadow-[#22c55e]/40'
+            : 'border-[#94a3b8]/40 border-dashed hover:border-[#22c55e] shadow-xl'
         }`}
+        style={{
+          background: 'radial-gradient(circle, rgba(30, 41, 59, 0.95) 0%, rgba(10, 15, 29, 0.98) 100%)',
+          boxShadow: '0 16px 40px rgba(0, 0, 0, 0.85), 0 0 24px rgba(34, 197, 94, 0.2)',
+        }}
       >
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-400/30 flex items-center justify-center mb-4 text-blue-400 shadow-inner group-hover:scale-110 transition-transform">
-          <UploadCloud className="w-8 h-8 text-blue-400" />
+        <div className="w-14 h-14 rounded-2xl bg-slate-900 border border-[#22c55e]/60 shadow-sm flex items-center justify-center mb-4 transition-transform duration-200 hover:scale-105">
+          <UploadCloud className="w-7 h-7 text-[#22c55e]" strokeWidth={2.2} />
         </div>
 
-        <h3 className="text-lg font-bold text-white mb-1 tracking-tight">
+        <h3 className="text-base font-black text-white mb-1 tracking-tight">
           Seret & Lepas File ke Sini
         </h3>
-        <p className="text-xs text-slate-400 mb-4 text-center max-w-sm">
-          Radial Menu otomatis muncul menyesuaikan jenis file (PDF, Gambar, Office, Audio, Video).
+        <p className="text-xs text-slate-300 mb-4 text-center max-w-xs leading-relaxed font-medium">
+          Menu melingkar akan langsung melayang di atas desktop mengikuti jenis file Anda.
         </p>
 
         <button
           type="button"
-          className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-semibold text-slate-200 border border-slate-600/60 flex items-center gap-2 transition-colors"
+          className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] text-xs font-black !text-black flex items-center gap-2 transition-all shadow-md active:scale-98 cursor-pointer"
         >
-          <FolderOpen size={14} className="text-blue-400" />
-          <span>Pilih File dari Komputer</span>
+          <FolderOpen size={14} className="!text-black" />
+          <span className="!text-black">Buka File Picker</span>
         </button>
       </div>
 
-      {/* Instant Demo Presets for quick evaluation */}
-      <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-        <span className="text-[11px] font-medium text-slate-400 mr-1 flex items-center gap-1">
-          <Sparkles size={12} className="text-amber-400" /> Uji Coba Cepat:
+      {/* Quick Test Presets */}
+      <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400 mr-1">
+          Preset Uji Coba:
         </span>
         <button
           type="button"
-          onClick={() => loadPreset('Page 001.pdf', '.pdf', 1153433)} // 1.1 MB
-          className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-[11px] font-medium text-slate-200 flex items-center gap-1.5 transition-all hover:border-red-500/50"
+          onClick={() => loadPreset('Page_001.pdf', '.pdf', 1153433)}
+          className="px-3 py-1.5 rounded-full bg-slate-900 hover:bg-slate-950 border border-[#94a3b8]/40 hover:border-[#22c55e] text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
         >
-          <FileText size={12} className="text-red-400" />
-          <span>Page 001.pdf (1.1 MB)</span>
+          <FileText size={13} className="text-[#22c55e]" />
+          <span>Page_001.pdf</span>
+          <span className="text-[10px] text-slate-400 tabular-nums">1.1 MB</span>
         </button>
         <button
           type="button"
-          onClick={() => loadPreset('Photo_Portrait.jpg', '.jpg', 2516582)} // 2.4 MB
-          className="px-3 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 border border-slate-700/80 text-[11px] font-medium text-slate-200 flex items-center gap-1.5 transition-all hover:border-emerald-500/50"
+          onClick={() => loadPreset('Photo_Portrait.jpg', '.jpg', 2516582)}
+          className="px-3 py-1.5 rounded-full bg-slate-900 hover:bg-slate-950 border border-[#94a3b8]/40 hover:border-[#22c55e] text-xs font-bold text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
         >
-          <ImageIcon size={12} className="text-emerald-400" />
-          <span>Photo_Portrait.jpg (2.4 MB)</span>
+          <ImageIcon size={13} className="text-[#22c55e]" />
+          <span>Photo_Portrait.jpg</span>
+          <span className="text-[10px] text-slate-400 tabular-nums">2.4 MB</span>
         </button>
       </div>
     </div>

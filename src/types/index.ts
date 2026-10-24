@@ -13,9 +13,7 @@ export interface RadialSliceItem {
   id: string;
   label: string;
   type: RadialItemType;
-  iconName: string;
-  color: string;
-  bgGradient: [string, string];
+  iconName?: string;
   description?: string;
 }
 
@@ -64,7 +62,6 @@ export interface MetadataInfo {
 
 export interface ElectronAPI {
   convertFile: (request: ConversionRequest) => Promise<ConversionResponse>;
-  saveFileDialog: (defaultName: string) => Promise<string | null>;
   openInFolder: (filePath: string) => Promise<void>;
   hideWindow: () => void;
   showWindow: () => void;

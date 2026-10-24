@@ -1,4 +1,5 @@
-import { FileCategory, DroppedFileInfo } from '../types';
+import { useState, useEffect } from 'react';
+import { FileCategory, DroppedFileInfo, ConversionResponse } from '../types';
 
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 B';
@@ -59,4 +60,90 @@ export function parseDroppedFile(file: File): DroppedFileInfo {
     category,
     file,
   };
+}
+
+export function triggerBrowserDownload(dataUrlOrBlobUrl: string, filename: string): void {
+  const a = document.createElement('a');
+  a.href = dataUrlOrBlobUrl;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+}
+
+// Custom hook to safely load file preview in both Web & Electron
+export function useFilePreview(fileInfo: DroppedFileInfo): string {
+  const [imageSrc, setImageSrc] = useState<string>('');
+
+  useEffect(() => {
+    let active = true;
+
+    async function load() {
+      if (fileInfo.file) {
+        const url = URL.createObjectURL(fileInfo.file);
+        if (active) setImageSrc(url);
+      } else if (window.electronAPI && typeof window.electronAPI.readFileBase64 === 'function') {
+        const res = await window.electronAPI.readFileBase64(fileInfo.path);
+        if (active && res.success && res.dataUrl) {
+          setImageSrc(res.dataUrl);
+        }
+      }
+    }
+
+    load();
+    return () => {
+      active = false;
+    };
+  }, [fileInfo]);
+
+  return imageSrc;
+}
+
+// Unified image save dispatcher: Electron IPC or browser download fallback
+export async function saveEditedImage({
+  fileInfo,
+  dataUrl,
+  suffix,
+  ext = 'png',
+  onSuccess,
+  onClose,
+}: {
+  fileInfo: DroppedFileInfo;
+  dataUrl: string;
+  suffix: string;
+  ext?: string;
+  message?: string;
+  onSuccess: (res: ConversionResponse) => void;
+  onClose: () => void;
+}): Promise<void> {
+  const cleanExt = ext.replace(/^\./, '');
+  const baseName = fileInfo.name.replace(/\.[^/.]+$/, '');
+  const outputName = `${baseName}_${suffix}.${cleanExt}`;
+
+  if (window.electronAPI && typeof window.electronAPI.saveBase64Image === 'function') {
+    const res = await window.electronAPI.saveBase64Image({
+      sourceFilePath: fileInfo.path,
+      base64Data: dataUrl,
+      suffix,
+      ext: cleanExt,
+    });
+    if (res.success && res.outputPath) {
+      onSuccess({
+        success: true,
+        outputPath: res.outputPath,
+        outputName: res.outputName || outputName,
+      });
+      onClose();
+      return;
+    }
+  }
+
+  // Web fallback
+  triggerBrowserDownload(dataUrl, outputName);
+  onSuccess({
+    success: true,
+    outputName,
+    downloadUrl: dataUrl,
+  });
+  onClose();
 }
