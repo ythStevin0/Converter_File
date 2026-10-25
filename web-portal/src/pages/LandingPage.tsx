@@ -468,7 +468,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <div className="p-4 bg-obsidian-900 border border-[#00e575]/40 rounded-xl space-y-2.5 bg-signal-dim/10">
             <div className="text-xs font-bold text-[#00e575]">06 // KRIPTOGRAFI &amp; PRIVASI</div>
             <div className="flex flex-wrap gap-1.5">
-              {['.LOCKED (AES-256)', '.STAMP (SHA-256)', 'ZIP ARSIP'].map(ext => (
+              {['.LOCKED (AES-256)', 'CHECKSUM (SHA-256)', 'ZIP ARSIP'].map(ext => (
                 <span key={ext} className="px-2 py-0.5 bg-obsidian-950 border border-[#00e575]/40 rounded text-[11px] font-mono text-[#00e575] font-semibold">
                   {ext}
                 </span>

@@ -63,12 +63,11 @@ Dokumen ini merupakan panduan eksekusi teknis terstruktur berdasarkan Product Re
 
 ---
 
-### Langkah 5: Integrasi 3 Fitur Web3 (ipfs.ts, stamp.ts, encrypt.ts)
-**Tujuan:** Menyematkan utilitas Web3 tanpa ketergantungan server terpusat.
+### Langkah 5: Integrasi Fitur Keamanan & Kriptografi (cryptoHelpers.ts)
+**Tujuan:** Menyematkan utilitas integritas dan privasi data 100% offline tanpa ketergantungan server terpusat.
 - **Tugas Teknis:**
-  1. `ipfs.ts` (**IPFS DROP**): Unggah file via IPFS SDK (Pinata/Lighthouse), tampilkan progress persentase di tengah lingkaran menu, dan salin link IPFS ke clipboard.
-  2. `stamp.ts` (**VERIFY / STAMP**): Hitung hash SHA-256 file secara lokal, tautkan verifikasi on-chain EAS (Ethereum Attestation Service) via `viem`.
-  3. `encrypt.ts` (**ENCRYPT / UNLOCK**): Enkripsi file lokal dengan AES-256-GCM / Lit Protocol menjadi format `.locked`, serta deteksi otomatis file `.locked` untuk membuka modal unlock.
+  1. `cryptoHelpers.ts` (**CHECKSUM**): Hitung hash SHA-256 berkas secara lokal via WebCrypto (0 detik, 0 data keluar) dan salin hash ke clipboard.
+  2. `cryptoHelpers.ts` (**ENCRYPT / UNLOCK**): Enkripsi berkas lokal dengan AES-256-GCM + PBKDF2-HMAC-SHA256 (600.000 iterasi OWASP) dalam format container `ORBT v1` dengan AAD header dan nama berkas terenkripsi, serta deteksi otomatis berkas `.locked` untuk membuka modal unlock baik di desktop maupun di web portal.
 
 ---
 

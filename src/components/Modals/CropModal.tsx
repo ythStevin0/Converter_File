@@ -31,6 +31,17 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
   const containerRef = useRef<HTMLDivElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // When image loads, initialize crop rectangle to 80% of centered image
   const handleImageLoaded = () => {
     if (!imageRef.current) return;
@@ -201,6 +212,9 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
       onMouseUp={handleMouseUp}
     >
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="crop-modal-title"
         initial={{ scale: 0.94, y: 12 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.94, y: 12 }}
@@ -217,13 +231,14 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
           <button
             type="button"
             onClick={onClose}
+            aria-label="Tutup modal crop"
             className="absolute left-0 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-600 flex items-center justify-center transition-colors font-bold cursor-pointer"
           >
             <X size={15} strokeWidth={2.4} />
           </button>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
-            <h2 className="text-base font-black text-white tracking-tight">Crop Image</h2>
+            <h2 id="crop-modal-title" className="text-base font-black text-white tracking-tight">Crop Image</h2>
           </div>
         </div>
 

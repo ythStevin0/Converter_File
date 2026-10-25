@@ -57,6 +57,17 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImageRef = useRef<HTMLImageElement | null>(null);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Redraw canvas whenever settings change
   useEffect(() => {
     if (!imageSrc) return;
@@ -215,6 +226,9 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md select-none"
     >
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="add-bg-modal-title"
         initial={{ scale: 0.94, y: 12 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.94, y: 12 }}
@@ -231,13 +245,14 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
           <button
             type="button"
             onClick={onClose}
+            aria-label="Tutup modal latar belakang"
             className="absolute left-0 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-600 flex items-center justify-center transition-colors font-bold cursor-pointer"
           >
             <X size={15} strokeWidth={2.4} />
           </button>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
-            <h2 className="text-base font-black text-white tracking-tight">Add Background</h2>
+            <h2 id="add-bg-modal-title" className="text-base font-black text-white tracking-tight">Add Background</h2>
           </div>
         </div>
 
