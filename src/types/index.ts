@@ -78,6 +78,7 @@ export interface ElectronAPI {
   getMetadata: (sourceFilePath: string) => Promise<{ success: boolean; data?: MetadataInfo; error?: string }>;
   stripMetadata: (sourceFilePath: string) => Promise<ConversionResponse>;
   readFileBase64: (filePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
+  getFilePath?: (file: any) => string;
   onFileDropTrigger?: (callback: (fileInfo: DroppedFileInfo) => void) => void;
 }
 

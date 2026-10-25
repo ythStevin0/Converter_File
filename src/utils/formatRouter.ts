@@ -59,6 +59,21 @@ export const QUICK_ACTIONS_SLICES: RadialSliceItem[] = [
   },
 ];
 
+export function getQuickActionSlicesForCategory(category: FileCategory): RadialSliceItem[] {
+  switch (category) {
+    case 'image':
+      return QUICK_ACTIONS_SLICES; // All 8 image tools: Crop, Add BG, Compress, Metadata, Redact, Annotate, Checksum, Encrypt
+    case 'pdf':
+    case 'document':
+      return QUICK_ACTIONS_SLICES.filter((s) => ['compress', 'metadata', 'checksum', 'encrypt'].includes(s.id));
+    case 'video':
+    case 'audio':
+    case 'archive':
+    default:
+      return QUICK_ACTIONS_SLICES.filter((s) => ['compress', 'metadata', 'checksum', 'encrypt'].includes(s.id));
+  }
+}
+
 export function getFormatSlicesForCategory(category: FileCategory, currentExtension: string): RadialSliceItem[] {
   const ext = currentExtension.toLowerCase().replace(/^\./, '');
 
@@ -66,9 +81,11 @@ export function getFormatSlicesForCategory(category: FileCategory, currentExtens
     case 'pdf':
       return [
         { id: 'fmt-docx', label: 'DOCX', type: 'format', iconName: 'FileText' },
-        { id: 'fmt-jpg', label: 'JPG', type: 'format', iconName: 'Image' },
-        { id: 'fmt-png', label: 'PNG', type: 'format', iconName: 'Image' },
         { id: 'fmt-txt', label: 'TXT', type: 'format', iconName: 'FileCode' },
+        { id: 'fmt-html', label: 'HTML', type: 'format', iconName: 'Code' },
+        { id: 'fmt-md', label: 'MD', type: 'format', iconName: 'FileEdit' },
+        { id: 'fmt-epub', label: 'EPUB', type: 'format', iconName: 'Book' },
+        { id: 'fmt-png', label: 'PNG', type: 'format', iconName: 'Image' },
       ];
 
     case 'image': {

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 
 contextBridge.exposeInMainWorld('electronAPI', {
   convertFile: (request: any) => ipcRenderer.invoke('convert-file', request),
@@ -10,6 +10,16 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getMetadata: (filePath: string) => ipcRenderer.invoke('get-metadata', filePath),
   stripMetadata: (filePath: string) => ipcRenderer.invoke('strip-metadata', filePath),
   readFileBase64: (filePath: string) => ipcRenderer.invoke('read-file-base64', filePath),
+  getFilePath: (file: any) => {
+    try {
+      if (webUtils && typeof webUtils.getPathForFile === 'function') {
+        return webUtils.getPathForFile(file);
+      }
+      return file?.path || '';
+    } catch {
+      return file?.path || '';
+    }
+  },
   onFileDropTrigger: (callback: (fileInfo: any) => void) => {
     ipcRenderer.on('file-drop-trigger', (_event, value) => callback(value));
   },

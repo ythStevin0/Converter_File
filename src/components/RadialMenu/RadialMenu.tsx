@@ -4,7 +4,7 @@ import { RadialSlice } from './RadialSlice';
 import { CenterCircle } from './CenterCircle';
 import { RingToggle } from './RingToggle';
 import { DroppedFileInfo, RadialSliceItem, MenuRingMode } from '../../types';
-import { getFormatSlicesForCategory, QUICK_ACTIONS_SLICES } from '../../utils/formatRouter';
+import { getFormatSlicesForCategory, getQuickActionSlicesForCategory, QUICK_ACTIONS_SLICES } from '../../utils/formatRouter';
 import { parseDroppedFile } from '../../utils/fileHelpers';
 
 interface RadialMenuProps {
@@ -37,7 +37,13 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
     return getFormatSlicesForCategory(fileInfo.category, fileInfo.extension);
   }, [fileInfo]);
 
-  const activeSlices = ringMode === 'format' ? formatSlices : QUICK_ACTIONS_SLICES;
+  // Compute quick action slices contextual to the file category
+  const quickActionSlices = React.useMemo(() => {
+    if (!fileInfo) return QUICK_ACTIONS_SLICES;
+    return getQuickActionSlicesForCategory(fileInfo.category);
+  }, [fileInfo]);
+
+  const activeSlices = ringMode === 'format' ? formatSlices : quickActionSlices;
 
   // Toggle ring mode
   const toggleRingMode = useCallback(() => {
@@ -257,7 +263,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
         mode={ringMode}
         onToggle={toggleRingMode}
         formatCount={formatSlices.length}
-        toolCount={QUICK_ACTIONS_SLICES.length}
+        toolCount={quickActionSlices.length}
       />
     </div>
   );
