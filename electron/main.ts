@@ -193,7 +193,23 @@ handle('get-metadata', async (filePath: string) => {
 
 // Sharp otomatis membuang EXIF/XMP/IPTC selama .withMetadata() tidak dipanggil
 handle('strip-metadata', async (filePath: string) => {
+  const ext = path.extname(filePath).slice(1).toLowerCase();
   const out = outPath(filePath, ' Clean');
+
+  if (ext === 'pdf') {
+    const pdfBytes = await fs.readFile(filePath);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    pdfDoc.setTitle('');
+    pdfDoc.setAuthor('');
+    pdfDoc.setSubject('');
+    pdfDoc.setKeywords([]);
+    pdfDoc.setProducer('');
+    pdfDoc.setCreator('');
+    const cleanBytes = await pdfDoc.save({ useObjectStreams: true });
+    await fs.writeFile(out, cleanBytes);
+    return done(out);
+  }
+
   await sharp(filePath).toFile(out);
   return done(out);
 });
@@ -204,6 +220,19 @@ handle('compress-image', async ({ sourceFilePath: src, quality = 65 }: {
 }) => {
   const ext = path.extname(src).slice(1).toLowerCase();
   const out = outPath(src, ' Compressed');
+
+  if (ext === 'pdf') {
+    const pdfBytes = await fs.readFile(src);
+    const pdfDoc = await PDFDocument.load(pdfBytes);
+    const compressedBytes = await pdfDoc.save({ useObjectStreams: true });
+    await fs.writeFile(out, compressedBytes);
+    return {
+      ...done(out),
+      originalSize: pdfBytes.length,
+      newSize: compressedBytes.length,
+    };
+  }
+
   const img = sharp(src);
 
   if (ext === 'jpg' || ext === 'jpeg') img.jpeg({ quality, mozjpeg: true });

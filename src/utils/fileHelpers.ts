@@ -51,9 +51,20 @@ export function parseDroppedFile(file: File): DroppedFileInfo {
   const ext = extMatch ? `.${extMatch[1].toLowerCase()}` : '';
   const category = getFileCategory(ext);
 
+  let realPath = '';
+  if (typeof window !== 'undefined' && window.electronAPI && typeof window.electronAPI.getFilePath === 'function') {
+    try {
+      realPath = window.electronAPI.getFilePath(file);
+    } catch {
+      realPath = (file as any)?.path || '';
+    }
+  } else {
+    realPath = (file as any)?.path || '';
+  }
+
   return {
     name,
-    path: (file as any).path || file.name,
+    path: realPath || file.name,
     size: file.size,
     formattedSize: formatFileSize(file.size),
     extension: ext,

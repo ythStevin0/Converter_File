@@ -159,7 +159,7 @@ export const CenterCircle: React.FC<CenterCircleProps> = ({
                 {/* Omnitrix Metallic Silver Core Rivet */}
                 <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40 shrink-0" />
                 <span className="font-black text-sm tracking-wide uppercase !text-black font-sans leading-none">
-                  {fileInfo?.category === 'pdf' ? 'JPG' : fileInfo?.extension ? fileInfo.extension.replace('.', '').toUpperCase() : 'JPG'}
+                  {fileInfo?.extension ? fileInfo.extension.replace('.', '').toUpperCase() : 'PDF'}
                 </span>
               </div>
 
