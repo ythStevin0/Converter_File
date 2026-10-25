@@ -15,6 +15,7 @@ interface RadialMenuProps {
   conversionSuccess: boolean;
   conversionError: string | null;
   onClose?: () => void;
+  isModalOpen?: boolean;
 }
 
 export const RadialMenu: React.FC<RadialMenuProps> = ({
@@ -25,6 +26,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   conversionSuccess,
   conversionError,
   onClose,
+  isModalOpen = false,
 }) => {
   const [ringMode, setRingMode] = useState<MenuRingMode>('format');
   const [hoveredSlice, setHoveredSlice] = useState<RadialSliceItem | null>(null);
@@ -44,8 +46,11 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   }, []);
 
   // Keyboard shortcut listener (Tab to switch ring, Escape to close)
+  // Disabled when a modal is open to preserve standard form navigation and focus trap
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isModalOpen) return;
+
       if (e.key === 'Tab') {
         e.preventDefault();
         toggleRingMode();
@@ -56,7 +61,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [toggleRingMode, onClose]);
+  }, [toggleRingMode, onClose, isModalOpen]);
 
   // Scroll wheel listener to switch ring
   const handleWheel = (e: React.WheelEvent) => {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { X, Minimize2, Check, ArrowRight } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
@@ -13,6 +13,19 @@ interface CompressModalProps {
 export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose, onSuccess }) => {
   const [quality, setQuality] = useState<number>(75);
   const [isProcessing, setIsProcessing] = useState(false);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      } else if (e.key === 'Enter' && !isProcessing) {
+        handleApply();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isProcessing, quality, onClose]);
 
   // Estimation based on quality percentage
   const originalBytes = fileInfo.size;
@@ -97,6 +110,9 @@ export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose,
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-md select-none"
     >
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="compress-modal-title"
         initial={{ scale: 0.94, y: 12 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.94, y: 12 }}
@@ -113,13 +129,14 @@ export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose,
           <button
             type="button"
             onClick={onClose}
+            aria-label="Tutup modal kompresi"
             className="absolute left-0 w-7 h-7 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-600 flex items-center justify-center transition-colors font-bold cursor-pointer"
           >
             <X size={15} strokeWidth={2.4} />
           </button>
           <div className="flex items-center gap-1.5">
             <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
-            <h2 className="text-base font-black text-white tracking-tight">Kompresi File</h2>
+            <h2 id="compress-modal-title" className="text-base font-black text-white tracking-tight">Kompresi File</h2>
           </div>
         </div>
 

@@ -24,9 +24,9 @@ Saat pengguna menyeret sebuah file, aplikasi memunculkan menu melingkar (**Radia
     
     - **Solusi:** Jendela _pop-up_ mini (`Crop Image` dan `Add BG`) yang langsung terbuka dari menu melingkar dengan pengaturan rasio, _padding_, sudut melengkung, dan bayangan instan.
         
-- **Masalah 3 (Keamanan, Bukti Keaslian & Berbagi File):** Berbagi file secara permanen, menyegel keaslian dokumen, atau mengenkripsi file rahasia membutuhkan banyak alat terpisah.
+- **Masalah 3 (Keamanan, Integritas & Kerahasiaan Berkas):** Memastikan berkas tidak rusak/diubah saat transfer dan mengamankan berkas rahasia secara mandiri tanpa ketergantungan server pihak ketiga.
     
-    - **Solusi:** Integrasi menu Web3 (`IPFS DROP`, `STAMP`, dan `ENCRYPT`) langsung di dalam menu melingkar disertai Web Portal pendamping bagi penerima file.
+    - **Solusi:** Fitur `CHECKSUM` (SHA-256 integritas berkas) dan `ENCRYPT` (AES-256-GCM dengan OWASP 600.000 iterasi) langsung di desktop, serta Web Portal pendamping untuk verifikasi dan dekripsi mandiri.
         
 
 ## 3. Alur Pengguna & Spesifikasi UX/UI (User Experience)
@@ -113,56 +113,34 @@ Saat pengguna beralih ke menu aksi cepat, juring lingkaran menampilkan opsi beri
     - **`ANNOTATE` & `EDIT`:** Menambahkan coretan, tanda panah, atau teks cepat pada gambar/PDF.
         
 
-### Modul C: Fitur Utilitas Web3
+### Modul C: Fitur Keamanan & Kriptografi Lokal
 
-Ketiga fitur Web3 diintegrasikan sebagai aksi _drag-and-drop_ di dalam menu melingkar:
+Dua fitur keamanan diintegrasikan sebagai aksi _drag-and-drop_ di dalam menu melingkar:
 
-1. **`IPFS DROP` (Penyimpanan Desentralisasi Instan):**
+1. **`CHECKSUM` (Integritas Berkas SHA-256):**
     
-    - **Input:** Segala jenis file yang dilepas ke juring `IPFS DROP`.
+    - **Input:** Dokumen atau berkas apa pun (misal `.pdf`, `.jpg`, `.png`, `.zip`).
+    - **Proses:** Menghitung kode kriptografi `SHA-256 Hash` secara lokal di perangkat via WebCrypto (100% offline, 0 detik, 0 data keluar).
+    - **Output:** Menyalin nilai hash SHA-256 ke clipboard pengguna dan menampilkan notifikasi sukses.
         
-    - **Proses:** Mengunggah file ke jaringan IPFS menggunakan Pinata/Lighthouse SDK (atau _local node_ Helia) dengan indikator persentase di lingkaran tengah.
-        
-    - **Output:** Menyalin URL IPFS (`https://.../ipfs/CID`) langsung ke _clipboard_ pengguna dan menampilkan notifikasi sukses.
-        
-2. **`VERIFY / STAMP` (Bukti Keaslian Dokumen On-Chain):**
+2. **`ENCRYPT / UNLOCK` (Enkripsi Offline AES-256-GCM):**
     
-    - **Input:** Dokumen atau karya asli (misal `.pdf`, `.jpg`, `.png`).
-        
-    - **Proses:** Menghitung kode kriptografi `SHA-256 Hash` secara lokal di perangkat (0 detik, Rp 0).
-        
-    - **Output Modal:**
-        
-        - Mode **Verify (Gratis/Tanpa Wallet):** Mengecek ke jaringan Layer-2 (Base/Polygon via _Ethereum Attestation Service_) apakah kode _hash_ file tersebut sudah terdaftar beserta waktu dan alamat pembuatnya.
-            
-        - Mode **Stamp (On-Chain):** Mencatat _hash_ file ke blockchain menggunakan tanda tangan dompet pengguna dan menyematkan bukti transaksi ke metadata file.
-            
-3. **`ENCRYPT / UNLOCK` (Enkripsi File Berbasis Wallet):**
-    
-    - **Proses Encrypt:** Saat file dilepas ke menu `ENCRYPT`, muncul input alamat wallet penerima (`0x...` / `.eth`) atau kata sandi. File dienkripsi menggunakan `AES-256-GCM` + kontrol akses _Lit Protocol_ dan disimpan sebagai `namafile.ext.locked`.
-        
-    - **Proses Unlock:** Saat pengguna menyeret file berekstensi `.locked`, menu melingkar otomatis menampilkan tombol `UNLOCK` untuk mendekripsi file kembali ke bentuk aslinya.
-        
+    - **Proses Encrypt:** Pengguna memasukkan kata sandi (minimal 8 karakter dengan pengukur kekuatan interaktif). Berkas dipaketkan ke dalam format kontainer `ORBT v1` dengan derivasi kunci `PBKDF2-HMAC-SHA256 (600.000 iterasi OWASP)` dan header terotentikasi (AAD) agar kebal manipulasi. Nama berkas asli dienkripsi di dalam payload untuk melindungi privasi.
+    - **Proses Unlock:** Saat pengguna menyeret berkas `.locked`, aplikasi langsung menampilkan modal `UNLOCK` untuk memulihkan nama dan konten berkas asli secara offline.
 
-### Modul D: Website Landing Page & Web Portal Pendamping (Opsi 1)
+### Modul D: Website Landing Page & Web Portal Pendamping
 
-Satu aplikasi web terpadu yang di-hosting gratis di **Vercel** dengan tiga rute utama:
+Satu aplikasi web terpadu yang di-hosting di **Vercel** dengan tiga rute utama:
 
 1. **Halaman Utama (`/`):**
-    
-    - Menampilkan video demonstrasi penggunaan _Radial Menu_.
+    - Menampilkan panduan dan visualisasi interaktif penggunaan _Radial Menu_.
+    - Tombol unduh cerdas yang mendeteksi OS pengunjung.
         
-    - Tombol unduh cerdas yang mendeteksi OS pengunjung dan mengarahkan langsung ke file installer di **GitHub Releases** (`.dmg` untuk macOS, `.exe` untuk Windows).
-        
-    - Panduan singkat melewati layar _Unverified Developer_ (klik kanan _Open_ di Mac / _Run Anyway_ di Windows) agar pengguna tidak bingung.
-        
-2. **Portal Verifikasi (`/verify`):**
-    
-    - Area _Drag-and-Drop_ berbasis browser bagi klien atau pihak ketiga (yang belum menginstal aplikasi desktop) untuk mengecek keaslian file yang telah di-`STAMP`.
+2. **Portal Verifikasi Checksum (`/verify`):**
+    - Area _Drag-and-Drop_ berbasis browser bagi pihak ketiga untuk menghitung hash SHA-256 berkas dan membandingkannya secara otomatis dengan hash pembanding guna membuktikan keaslian berkas tanpa mengunggah berkas ke server.
         
 3. **Portal Dekripsi (`/unlock`):**
-    
-    - Area _Drag-and-Drop_ berbasis browser bagi penerima file `.locked` untuk menghubungkan _wallet_ mereka, melakukan tanda tangan _off-chain_ gratis, dan mengunduh file asli.
+    - Area _Drag-and-Drop_ berbasis browser bagi penerima berkas `.locked` untuk mendekripsi berkas secara instan di CPU browser lokal dengan memasukkan kata sandi yang valid.
         
 
 ## 5. Arsitektur Teknis & Tech Stack

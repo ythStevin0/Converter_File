@@ -1,0 +1,51 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, staging, v2, design-and-refactor ]
+  pull_request:
+    branches: [ main, staging, v2, design-and-refactor ]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Build & Test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install Desktop App Dependencies
+        run: npm ci
+
+      - name: Run Cryptographic Compatibility Tests
+        run: npm run test:crypto
+
+      - name: Typecheck Desktop App
+        run: npx tsc --noEmit
+
+      - name: Build Desktop App & Electron Preload
+        run: |
+          npm run build
+          npm run build:electron
+
+      - name: Install & Build Web Portal
+        shell: bash
+        run: |
+          cd web-portal
+          npm ci
+          npm run build

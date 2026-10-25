@@ -2,21 +2,32 @@ import React, { useState } from 'react';
 
 export const VerifyPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
-  const [hash, setHash] = useState<string | null>(null);
+  const [calculatedHash, setCalculatedHash] = useState<string | null>(null);
+  const [expectedHash, setExpectedHash] = useState<string>('');
   const [elapsed, setElapsed] = useState<string | null>(null);
   const [isCopied, setIsCopied] = useState(false);
+  const [isCalculating, setIsCalculating] = useState(false);
 
   const calculateSHA256 = async (inputFile: File) => {
-    const t0 = performance.now();
-    const arrayBuffer = await inputFile.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-    const timeTaken = (performance.now() - t0).toFixed(1);
-
+    setIsCalculating(true);
     setFile(inputFile);
-    setHash(hashHex);
-    setElapsed(timeTaken);
+    setCalculatedHash(null);
+
+    const t0 = performance.now();
+    try {
+      const arrayBuffer = await inputFile.arrayBuffer();
+      const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+      const hashArray = Array.from(new Uint8Array(hashBuffer));
+      const hashHex = hashArray.map((b) => b.toString(16).padStart(2, '0')).join('');
+      const timeTaken = (performance.now() - t0).toFixed(1);
+
+      setCalculatedHash(hashHex);
+      setElapsed(timeTaken);
+    } catch {
+      setCalculatedHash(null);
+    } finally {
+      setIsCalculating(false);
+    }
   };
 
   const handleFileDrop = (e: React.DragEvent) => {
@@ -33,11 +44,18 @@ export const VerifyPage: React.FC = () => {
   };
 
   const copyHash = () => {
-    if (!hash) return;
-    navigator.clipboard.writeText(`0x${hash}`);
+    if (!calculatedHash) return;
+    navigator.clipboard.writeText(calculatedHash);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
+
+  // Checksum comparison logic (case-insensitive, trims, strips leading 0x)
+  const cleanCalculated = calculatedHash ? calculatedHash.toLowerCase().trim() : null;
+  const cleanExpected = expectedHash.replace(/^0x/i, '').toLowerCase().trim();
+  const hasExpectedInput = cleanExpected.length > 0;
+  const isMatch = cleanCalculated && hasExpectedInput && cleanCalculated === cleanExpected;
+  const isMismatch = cleanCalculated && hasExpectedInput && cleanCalculated !== cleanExpected;
 
   return (
     <div className="py-6 max-w-3xl mx-auto space-y-8">
@@ -45,13 +63,13 @@ export const VerifyPage: React.FC = () => {
         {/* Header */}
         <div className="space-y-2 border-b border-obsidian-border pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-signal-dim border border-[#00e575]/30 rounded-full text-xs font-medium text-[#00e575]">
-            <span>Portal Kriptografi SHA-256 (WebCrypto)</span>
+            <span>SHA-256 Checksum Verifier (WebCrypto)</span>
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
-            Verifikasi Keaslian Dokumen
+            Verifikasi Integritas Berkas
           </h1>
           <p className="text-sm text-[#8ca396] leading-relaxed">
-            Periksa apakah file yang Anda terima memiliki checksum integritas resmi yang cocok. Diproses 100% lokal di browser Anda tanpa mengunggah file ke server.
+            Hitung nilai hash SHA-256 autentik berkas Anda dan bandingkan dengan hash pembanding untuk membuktikan keaslian dan mendeteksi apakah berkas telah dimodifikasi atau rusak.
           </p>
         </div>
 
@@ -60,7 +78,7 @@ export const VerifyPage: React.FC = () => {
           htmlFor="verifyFileInput"
           onDragOver={(e) => e.preventDefault()}
           onDrop={handleFileDrop}
-          className="block w-full p-10 bg-obsidian-950 border-2 border-dashed border-obsidian-border hover:border-[#00e575] rounded-xl transition cursor-pointer text-center space-y-3 group"
+          className="block w-full p-8 bg-obsidian-950 border-2 border-dashed border-obsidian-border hover:border-[#00e575] rounded-xl transition cursor-pointer text-center space-y-3 group"
         >
           <input
             id="verifyFileInput"
@@ -75,36 +93,82 @@ export const VerifyPage: React.FC = () => {
           </div>
           <div className="space-y-1">
             <p className="text-base font-bold text-white">
-              {file ? `File: ${file.name}` : 'Seret & Lepas Dokumen ke Sini'}
+              {isCalculating
+                ? 'Sedang menghitung hash kriptografi...'
+                : file
+                ? `Berkas: ${file.name}`
+                : 'Seret & Lepas Berkas ke Sini'}
             </p>
             <p className="text-xs text-[#6e8578]">
-              Atau klik untuk memilih file dari komputer Anda
+              {file ? `Ukuran: ${(file.size / 1024).toFixed(1)} KB` : 'Atau klik untuk memilih berkas dari komputer Anda'}
             </p>
           </div>
         </label>
 
-        {/* Result Card */}
-        {hash && file && (
-          <div className="bg-obsidian-950 border border-[#00e575] rounded-xl p-5 space-y-4">
+        {/* Optional Expected Hash Input */}
+        <div className="space-y-2 bg-obsidian-950 border border-obsidian-border p-4 rounded-xl">
+          <label htmlFor="expectedHashInput" className="block text-xs font-bold text-white uppercase tracking-wider">
+            Hash yang Diharapkan (Opsional untuk Komparasi Otomatis):
+          </label>
+          <input
+            id="expectedHashInput"
+            type="text"
+            value={expectedHash}
+            onChange={(e) => setExpectedHash(e.target.value)}
+            placeholder="Tempel hash SHA-256 pembanding (contoh: a3f8... atau 0xa3f8...)"
+            className="w-full px-3.5 py-2.5 bg-obsidian-900 border border-obsidian-border focus:border-[#00e575] rounded-lg text-xs font-mono text-white placeholder-[#6e8578] focus:outline-none transition"
+          />
+        </div>
+
+        {/* Comparison Result Banners */}
+        {calculatedHash && hasExpectedInput && (
+          <div>
+            {isMatch ? (
+              <div className="p-4 rounded-xl bg-emerald-950/40 border-2 border-emerald-500 text-emerald-300 space-y-1">
+                <div className="flex items-center gap-2 font-bold text-sm text-emerald-400">
+                  <span>✓</span>
+                  <span>CHECKSUM COCOK (100% IDENTIK)</span>
+                </div>
+                <p className="text-xs text-emerald-200/90 leading-relaxed">
+                  Berkas terverifikasi identik dengan nilai hash yang diberikan. Berkas tidak mengalami perubahan, korupsi, atau manipulasi byte.
+                </p>
+              </div>
+            ) : isMismatch ? (
+              <div className="p-4 rounded-xl bg-rose-950/40 border-2 border-rose-500 text-rose-300 space-y-1">
+                <div className="flex items-center gap-2 font-bold text-sm text-rose-400">
+                  <span>✕</span>
+                  <span>CHECKSUM TIDAK COCOK (BERBEDA)</span>
+                </div>
+                <p className="text-xs text-rose-200/90 leading-relaxed">
+                  Nilai hash berkas ini berbeda dari nilai yang diharapkan. Berkas kemungkinan telah dimodifikasi, rusak saat proses unduh, atau bukan versi yang dimaksud.
+                </p>
+              </div>
+            ) : null}
+          </div>
+        )}
+
+        {/* Calculated Hash Output Card */}
+        {calculatedHash && file && (
+          <div className="bg-obsidian-950 border border-obsidian-border rounded-xl p-5 space-y-4">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-obsidian-border pb-3">
               <div>
                 <span className="text-xs font-bold text-white block">{file.name}</span>
                 <span className="text-[11px] text-[#6e8578]">
-                  Ukuran: {(file.size / 1024).toFixed(1)} KB • Selesai dalam {elapsed} ms
+                  Ukuran: {(file.size / 1024).toFixed(1)} KB • Waktu hitung: {elapsed} ms
                 </span>
               </div>
-              <span className="text-xs px-2.5 py-1 bg-signal-dim text-[#00e575] font-bold rounded border border-[#00e575]/40">
-                ✓ SHA-256 Terverifikasi
+              <span className="text-xs px-2.5 py-1 bg-obsidian-900 text-[#00e575] font-mono font-bold rounded border border-[#00e575]/30">
+                SHA-256
               </span>
             </div>
 
             <div className="space-y-1.5">
               <span className="text-[11px] text-[#6e8578] uppercase font-semibold">
-                Nilai Checksum Kriptografi (Hash SHA-256):
+                Nilai Checksum SHA-256 Dihitung:
               </span>
               <div className="flex items-center justify-between gap-3 bg-obsidian-900 border border-obsidian-border p-3 rounded-lg">
-                <code className="font-mono text-xs text-[#00e575] break-all">
-                  0x{hash}
+                <code className="font-mono text-xs text-[#00e575] break-all select-all">
+                  {calculatedHash}
                 </code>
                 <button
                   type="button"
@@ -119,7 +183,7 @@ export const VerifyPage: React.FC = () => {
         )}
 
         <div className="text-center text-xs text-[#6e8578]">
-          🔒 0 Byte diunggah ke internet — Eksekusi murni di mesin peramban Anda.
+          🔒 0 Byte dikirim ke internet — Eksekusi murni di mesin browser lokal Anda (SHA-256 WebCrypto).
         </div>
       </div>
     </div>

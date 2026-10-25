@@ -163,8 +163,9 @@ handle('save-base64-image', async ({ sourceFilePath, base64Data, suffix, ext = '
   suffix: string;
   ext?: string;
 }) => {
-  const out = outPath(sourceFilePath, ` ${suffix}`, `.${ext.replace(/^\./, '')}`);
-  await fs.writeFile(out, Buffer.from(base64Data.replace(/^data:image\/\w+;base64,/, ''), 'base64'));
+  const outSuffix = suffix ? ` ${suffix}` : '';
+  const out = outPath(sourceFilePath, outSuffix, `.${ext.replace(/^\./, '')}`);
+  await fs.writeFile(out, Buffer.from(base64Data.replace(/^data:.*?;base64,/, ''), 'base64'));
   return done(out);
 });
 

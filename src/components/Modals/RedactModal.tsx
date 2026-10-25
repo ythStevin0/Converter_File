@@ -29,6 +29,17 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
   const loadedImgRef = useRef<HTMLImageElement | null>(null);
 
   useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation();
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
+  useEffect(() => {
     if (!imageSrc) return;
     const img = new Image();
     img.crossOrigin = 'anonymous';
@@ -150,6 +161,9 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-xl select-none"
     >
       <motion.div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="redact-modal-title"
         initial={{ scale: 0.92, y: 10 }}
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.92, y: 10 }}
@@ -169,7 +183,7 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
             <div>
               <div className="flex items-center gap-1.5">
                 <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40" />
-                <h2 className="text-sm font-black text-white tracking-tight">Redact &amp; Sensor Sensitive Area</h2>
+                <h2 id="redact-modal-title" className="text-sm font-black text-white tracking-tight">Redact &amp; Sensor Sensitive Area</h2>
               </div>
               <p className="text-[10px] text-slate-400">Tarik kotak hitam di atas area yang ingin disensor</p>
             </div>

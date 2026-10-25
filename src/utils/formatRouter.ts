@@ -44,25 +44,18 @@ export const QUICK_ACTIONS_SLICES: RadialSliceItem[] = [
     description: 'Quick markup, arrows and text notes',
   },
   {
-    id: 'ipfs-drop',
-    label: 'IPFS DROP',
-    type: 'web3',
-    iconName: 'Globe',
-    description: 'Instant decentralized storage & share link',
-  },
-  {
-    id: 'stamp',
-    label: 'STAMP',
-    type: 'web3',
-    iconName: 'ShieldCheck',
-    description: 'SHA-256 On-Chain Attestation & Timestamp',
+    id: 'checksum',
+    label: 'CHECKSUM',
+    type: 'action',
+    iconName: 'Hash',
+    description: 'Hitung & salin SHA-256 Checksum integritas berkas',
   },
   {
     id: 'encrypt',
     label: 'ENCRYPT',
-    type: 'web3',
+    type: 'action',
     iconName: 'Lock',
-    description: 'AES-256-GCM / Lit Protocol file encryption',
+    description: 'Enkripsi offline AES-256-GCM dengan kata sandi',
   },
 ];
 

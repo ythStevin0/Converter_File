@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { decryptFileBuffer } from '../utils/cryptoHelpers';
 
 export const UnlockPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
@@ -20,7 +21,7 @@ export const UnlockPage: React.FC = () => {
     }
   };
 
-  const unlockFile = () => {
+  const unlockFile = async () => {
     if (!file) {
       setStatusMsg({
         type: 'error',
@@ -37,19 +38,28 @@ export const UnlockPage: React.FC = () => {
       return;
     }
 
-    // Success simulation
-    const originalName = file.name.replace(/\.locked$/i, '');
-    const cleanName = originalName.includes('.') ? originalName : `${originalName}.pdf`;
-    setDecryptedFileName(cleanName);
+    try {
+      setStatusMsg({ type: 'ok', text: 'Mendekripsi file dengan AES-256-GCM lokal...' });
+      const buffer = await file.arrayBuffer();
+      const { fileName, decryptedBytes } = await decryptFileBuffer(buffer, password);
 
-    const blob = new Blob(['Simulated decrypted file content'], { type: 'application/octet-stream' });
-    const url = URL.createObjectURL(blob);
-    setDecryptedUrl(url);
+      const blob = new Blob([decryptedBytes as any], { type: 'application/octet-stream' });
+      const url = URL.createObjectURL(blob);
+      setDecryptedUrl(url);
+      setDecryptedFileName(fileName);
 
-    setStatusMsg({
-      type: 'ok',
-      text: '✓ Kunci AES-256 valid! File berhasil dipulihkan di memori lokal.',
-    });
+      setStatusMsg({
+        type: 'ok',
+        text: `✓ Kunci AES-256 valid! Dokumen "${fileName}" (${(decryptedBytes.length / 1024).toFixed(1)} KB) berhasil dipulihkan di memori lokal.`,
+      });
+    } catch (err: any) {
+      setDecryptedUrl(null);
+      setDecryptedFileName(null);
+      setStatusMsg({
+        type: 'error',
+        text: err.message || 'Kata sandi salah atau berkas rusak / telah dimodifikasi.',
+      });
+    }
   };
 
   return (
@@ -58,7 +68,7 @@ export const UnlockPage: React.FC = () => {
         {/* Header */}
         <div className="space-y-2 border-b border-obsidian-border pb-6">
           <div className="inline-flex items-center gap-2 px-3 py-1 bg-signal-dim border border-[#00e575]/30 rounded-full text-xs font-medium text-[#00e575]">
-            <span>Dekripsi Lokal AES-256-GCM</span>
+            <span>Dekripsi Lokal AES-256-GCM (PBKDF2-SHA256, 600.000 iterasi)</span>
           </div>
           <h1 className="font-display text-2xl sm:text-3xl font-bold text-white">
             Dekripsi File Terkunci (.locked)

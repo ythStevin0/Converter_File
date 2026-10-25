@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { 
   FileText, Image as ImageIcon, Crop, Palette, Minimize2, 
-  Tag, EyeOff, Sliders, PenTool, Lock, ShieldCheck, Globe, File
+  Tag, EyeOff, Sliders, PenTool, Lock, ShieldCheck, Globe, File, Hash
 } from 'lucide-react';
 import { RadialSliceItem } from '../../types';
 
@@ -28,6 +28,7 @@ const ACTION_ICONS: Record<string, React.ElementType> = {
   annotate: PenTool,
   ipfs: Globe,
   stamp: ShieldCheck,
+  checksum: Hash,
   encrypt: Lock,
 };
 
@@ -97,7 +98,10 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
 
   return (
     <g
-      className="cursor-pointer select-none"
+      role="button"
+      tabIndex={0}
+      aria-label={item.description || item.label}
+      className="cursor-pointer select-none focus:outline-none"
       style={{
         transform: `translate(${shiftX}px, ${shiftY}px)`,
         transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
@@ -105,6 +109,12 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
       onMouseEnter={() => onHover(item)}
       onMouseLeave={() => onHover(null)}
       onClick={() => onSelect(item)}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onSelect(item);
+        }
+      }}
       onDragEnter={(e) => {
         e.preventDefault();
         e.stopPropagation();
