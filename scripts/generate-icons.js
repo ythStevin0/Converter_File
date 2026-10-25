@@ -27,9 +27,9 @@ const svgLogo = `
 async function buildIcons() {
   const iconBuffer = Buffer.from(svgLogo);
 
-  // 256x256 App Icon
+  // 512x512 High-Res App Icon (meets macOS & electron-builder minimum size requirements)
   await sharp(iconBuffer)
-    .resize(256, 256)
+    .resize(512, 512)
     .png()
     .toFile(path.join(assetsDir, 'icon.png'));
 
@@ -39,7 +39,7 @@ async function buildIcons() {
     .png()
     .toFile(path.join(assetsDir, 'tray.png'));
 
-  console.log('Generated assets/icon.png and assets/tray.png successfully!');
+  console.log('Generated assets/icon.png (512x512) and assets/tray.png successfully!');
 }
 
 buildIcons().catch(console.error);
