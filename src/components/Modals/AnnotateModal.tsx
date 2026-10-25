@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, PenTool, RotateCcw, Check, Undo, ArrowUpRight, Square, Type, Highlighter } from 'lucide-react';
+import { X, PenTool, RotateCcw, Check, Undo, ArrowUpRight, Square, Type, Highlighter, AlertCircle } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
 import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
@@ -33,6 +33,7 @@ export const AnnotateModal: React.FC<AnnotateModalProps> = ({ fileInfo, onClose,
   const [isDrawing, setIsDrawing] = useState(false);
   const [currentAction, setCurrentAction] = useState<DrawingAction | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImgRef = useRef<HTMLImageElement | null>(null);
@@ -241,7 +242,7 @@ export const AnnotateModal: React.FC<AnnotateModalProps> = ({ fileInfo, onClose,
         onClose,
       });
     } catch (err: any) {
-      alert('Error saving: ' + err.message);
+      setErrorMessage(err.message || 'Gagal menyimpan anotasi');
     } finally {
       setIsProcessing(false);
     }
@@ -367,6 +368,14 @@ export const AnnotateModal: React.FC<AnnotateModalProps> = ({ fileInfo, onClose,
             className="max-h-[300px] max-w-full object-contain cursor-crosshair rounded-lg shadow-xl"
           />
         </div>
+
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <div className="mx-4 mb-2 p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center gap-2 text-rose-300 text-xs">
+            <AlertCircle size={15} className="text-rose-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 bg-slate-950/90 border-t border-slate-800">

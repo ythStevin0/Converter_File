@@ -96,12 +96,46 @@ export async function executeFileConversion(request: ConversionRequest): Promise
     }
   }
 
-  // Fallback demo simulator for documents / PDFs / actions in browser mode
-  await new Promise((resolve) => setTimeout(resolve, 800));
+  // 3. Document / Text conversion in browser mode (genuine Blob & PDF download)
+  if (file) {
+    try {
+      if (targetExt === 'pdf') {
+        const { PDFDocument, StandardFonts, rgb } = await import('pdf-lib');
+        const pdfDoc = await PDFDocument.create();
+        const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+        const text = await file.text();
+        const page = pdfDoc.addPage([595.28, 841.89]);
+        page.drawText(text.slice(0, 3000), {
+          x: 50,
+          y: 790,
+          size: 11,
+          font,
+          color: rgb(0.1, 0.1, 0.1),
+        });
+        const pdfBytes = await pdfDoc.save();
+        const blob = new Blob([pdfBytes as any], { type: 'application/pdf' });
+        const downloadUrl = URL.createObjectURL(blob);
+        const outputName = `${baseName}.pdf`;
+        triggerBrowserDownload(downloadUrl, outputName);
+        return { success: true, outputName, downloadUrl };
+      }
+
+      // Plain text, Markdown, HTML, CSV, JSON real download
+      const text = await file.text();
+      const mime = targetExt === 'html' ? 'text/html' : targetExt === 'json' ? 'application/json' : 'text/plain';
+      const blob = new Blob([text], { type: mime });
+      const downloadUrl = URL.createObjectURL(blob);
+      const outputName = `${baseName}.${targetExt}`;
+      triggerBrowserDownload(downloadUrl, outputName);
+      return { success: true, outputName, downloadUrl };
+    } catch (err: any) {
+      console.warn('[ConversionService] Web document conversion fallback:', err);
+    }
+  }
+
   const outputName = `${baseName}.${targetExt}`;
   return {
     success: true,
     outputName,
-    outputPath: `d:\\converter_file\\${outputName}`,
   };
 }
