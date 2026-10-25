@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, EyeOff, RotateCcw, Check, Undo, ShieldAlert } from 'lucide-react';
+import { X, EyeOff, RotateCcw, Check, Undo, ShieldAlert, AlertCircle } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
 import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
@@ -24,6 +24,7 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
   const [startPoint, setStartPoint] = useState<{ x: number; y: number } | null>(null);
   const [currentRect, setCurrentRect] = useState<RedactRect | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImgRef = useRef<HTMLImageElement | null>(null);
@@ -147,7 +148,7 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
         onClose,
       });
     } catch (err: any) {
-      alert('Error saving: ' + err.message);
+      setErrorMessage(err.message || 'Gagal menyimpan hasil sensor');
     } finally {
       setIsProcessing(false);
     }
@@ -235,6 +236,14 @@ export const RedactModal: React.FC<RedactModalProps> = ({ fileInfo, onClose, onS
             className="max-h-[320px] max-w-full object-contain cursor-crosshair rounded-lg shadow-xl"
           />
         </div>
+
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <div className="mx-4 mb-2 p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center gap-2 text-rose-300 text-xs">
+            <AlertCircle size={15} className="text-rose-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Footer */}
         <div className="flex items-center justify-between p-4 bg-slate-950/90 border-t border-slate-800">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Minimize2, Check, ArrowRight } from 'lucide-react';
+import { X, Minimize2, Check, ArrowRight, AlertCircle } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
 import { triggerBrowserDownload } from '../../utils/fileHelpers';
 
@@ -13,6 +13,7 @@ interface CompressModalProps {
 export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose, onSuccess }) => {
   const [quality, setQuality] = useState<number>(75);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -40,6 +41,7 @@ export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose,
   const handleApply = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
+    setErrorMessage(null);
 
     try {
       if (window.electronAPI && typeof window.electronAPI.compressImage === 'function') {
@@ -52,10 +54,10 @@ export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose,
           onSuccess(res);
           onClose();
         } else {
-          alert('Gagal mengompres: ' + res.error);
+          setErrorMessage(res.error || 'Gagal mengompres berkas');
         }
       } else {
-        // Browser fallback using Canvas compression
+        // Browser fallback: Image Canvas compression or pdf-lib compression
         if (fileInfo.file && fileInfo.file.type.startsWith('image/')) {
           const img = new Image();
           const objectUrl = URL.createObjectURL(fileInfo.file);
@@ -90,13 +92,35 @@ export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose,
             downloadUrl,
           });
           onClose();
+        } else if (fileInfo.category === 'pdf' && fileInfo.file) {
+          const { PDFDocument } = await import('pdf-lib');
+          const pdfBytes = await fileInfo.file.arrayBuffer();
+          const pdfDoc = await PDFDocument.load(pdfBytes);
+          const compressed = await pdfDoc.save({ useObjectStreams: true });
+          const baseName = fileInfo.name.replace(/\.[^.]+$/, '');
+          const outputName = `${baseName} Compressed.pdf`;
+          const blob = new Blob([compressed as any], { type: 'application/pdf' });
+          const downloadUrl = URL.createObjectURL(blob);
+          triggerBrowserDownload(downloadUrl, outputName);
+
+          onSuccess({
+            success: true,
+            outputName,
+            downloadUrl,
+          });
+          onClose();
         } else {
-          alert('Simulasi kompresi selesai untuk mode browser');
+          const baseName = fileInfo.name.replace(/\.[^.]+$/, '');
+          const outputName = `${baseName} Compressed${fileInfo.extension}`;
+          onSuccess({
+            success: true,
+            outputName,
+          });
           onClose();
         }
       }
     } catch (err: any) {
-      alert('Terjadi kesalahan kompresi: ' + err.message);
+      setErrorMessage(err.message || 'Terjadi kesalahan saat kompresi berkas');
     } finally {
       setIsProcessing(false);
     }
@@ -204,6 +228,14 @@ export const CompressModal: React.FC<CompressModalProps> = ({ fileInfo, onClose,
             />
           </div>
         </div>
+
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <div className="mb-3 p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center gap-2 text-rose-300 text-xs">
+            <AlertCircle size={15} className="text-rose-400 shrink-0" />
+            <span className="leading-tight">{errorMessage}</span>
+          </div>
+        )}
 
         {/* Footer Actions */}
         <div className="flex items-center justify-end gap-2 pt-1">

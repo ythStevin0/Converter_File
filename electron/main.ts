@@ -4,6 +4,12 @@ import fs from 'fs/promises';
 import { fileURLToPath } from 'url';
 import sharp, { type FormatEnum } from 'sharp';
 import { PDFDocument } from 'pdf-lib';
+import { 
+  extractTextFromPdfBuffer, 
+  buildDocxFromText, 
+  buildHtmlFromText, 
+  buildPdfFromText 
+} from './docConverter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const WIN_W = 650;
@@ -278,17 +284,73 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     return done(out);
   }
 
-  // 2. PDF -> TXT (ekstraksi sederhana)
-  if (sourceCategory === 'pdf' && target === 'txt') {
-    const content = (await fs.readFile(src)).toString('utf-8');
-    const text = (content.match(/\((.*?)\)\s*Tj/g) || content.match(/\[(.*?)\]\s*TJ/g) || [])
-      .map((m) => m.replace(/^[(\[]/, '').replace(/[)\]]\s*T[jJ]$/, ''))
-      .join(' ');
-    await fs.writeFile(out, text || `[OrbitDrop: tidak ada teks yang bisa diekstrak dari ${path.basename(src)}]`);
-    return done(out);
+  // 2. Dokumen PDF -> TXT / DOCX / HTML / MD / EPUB
+  if (sourceCategory === 'pdf') {
+    const pdfBuf = await fs.readFile(src);
+    const text = extractTextFromPdfBuffer(pdfBuf);
+    const title = path.basename(src, '.pdf');
+
+    if (target === 'docx') {
+      const docxBuf = buildDocxFromText(text, title);
+      await fs.writeFile(out, docxBuf);
+      return done(out);
+    }
+
+    if (target === 'txt') {
+      await fs.writeFile(out, text || `[OrbitDrop: Tidak ada teks yang dapat diekstrak dari ${path.basename(src)}]`);
+      return done(out);
+    }
+
+    if (target === 'html' || target === 'epub') {
+      const html = buildHtmlFromText(text, title);
+      await fs.writeFile(out, html);
+      return done(out);
+    }
+
+    if (target === 'md') {
+      const paragraphs = text.split(/\r?\n/).map((p) => p.trim()).filter(Boolean);
+      const mdContent = `# ${title}\n\n${paragraphs.join('\n\n') || '[Teks kosong]'}`;
+      await fs.writeFile(out, mdContent);
+      return done(out);
+    }
   }
 
-  // 3. CSV <-> JSON
+  // 3. Dokumen Teks (TXT / MD / HTML) -> PDF / DOCX / HTML / MD / TXT
+  if (sourceCategory === 'document') {
+    const rawContent = (await fs.readFile(src, 'utf-8')).toString();
+    const docTitle = path.basename(src, path.extname(src));
+
+    if (target === 'pdf') {
+      const pdfBytes = await buildPdfFromText(rawContent, docTitle);
+      await fs.writeFile(out, Buffer.from(pdfBytes));
+      return done(out);
+    }
+
+    if (target === 'docx') {
+      const docxBuf = buildDocxFromText(rawContent, docTitle);
+      await fs.writeFile(out, docxBuf);
+      return done(out);
+    }
+
+    if (target === 'html') {
+      const html = buildHtmlFromText(rawContent, docTitle);
+      await fs.writeFile(out, html);
+      return done(out);
+    }
+
+    if (target === 'md') {
+      const mdContent = `# ${docTitle}\n\n${rawContent}`;
+      await fs.writeFile(out, mdContent);
+      return done(out);
+    }
+
+    if (target === 'txt') {
+      await fs.writeFile(out, rawContent);
+      return done(out);
+    }
+  }
+
+  // 4. CSV <-> JSON
   if (sourceCategory === 'archive' || sourceCategory === 'document') {
     if (srcExt === '.csv' && target === 'json') {
       const [head, ...lines] = (await fs.readFile(src, 'utf-8')).trim().split(/\r?\n/);
@@ -312,7 +374,7 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     }
   }
 
-  // 4. Fallback (termasuk PDF->PDF dan TXT<->MD): salin dengan ekstensi baru
+  // 5. Fallback: salin dengan ekstensi baru
   await fs.copyFile(src, out);
   return done(out);
 });

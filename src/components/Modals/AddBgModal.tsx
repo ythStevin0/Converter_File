@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Palette, RotateCcw, Check, Sparkles, Sliders, Layers } from 'lucide-react';
+import { X, Palette, RotateCcw, Check, Sparkles, Sliders, Layers, AlertCircle } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
 import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
@@ -53,6 +53,7 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
   const [shadowBlur, setShadowBlur] = useState<number>(30);
   const [canvasRatio, setCanvasRatio] = useState<CanvasRatio>('Auto');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const loadedImageRef = useRef<HTMLImageElement | null>(null);
@@ -212,7 +213,7 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
         onClose,
       });
     } catch (err: any) {
-      alert('Error saving image: ' + err.message);
+      setErrorMessage(err.message || 'Gagal menyimpan gambar dengan latar');
     } finally {
       setIsProcessing(false);
     }
@@ -394,6 +395,14 @@ export const AddBgModal: React.FC<AddBgModalProps> = ({ fileInfo, onClose, onSuc
               Reset
             </button>
           </div>
+
+          {/* Inline Error Banner */}
+          {errorMessage && (
+            <div className="mb-2 p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center gap-2 text-rose-300 text-xs">
+              <AlertCircle size={15} className="text-rose-400 shrink-0" />
+              <span>{errorMessage}</span>
+            </div>
+          )}
 
           {/* Apply Button */}
           <div className="flex items-center justify-end gap-2 pt-1">

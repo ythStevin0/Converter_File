@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { X, Crop as CropIcon, RotateCcw, Check, Move, Maximize2 } from 'lucide-react';
+import { X, Crop as CropIcon, RotateCcw, Check, Move, Maximize2, AlertCircle } from 'lucide-react';
 import { DroppedFileInfo, ConversionResponse } from '../../types';
 import { useFilePreview, saveEditedImage } from '../../utils/fileHelpers';
 
@@ -23,6 +23,7 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
     height: 0,
   });
   const [isProcessing, setIsProcessing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isDragging, setIsDragging] = useState(false);
   const [dragMode, setDragMode] = useState<'move' | 'nw' | 'ne' | 'se' | 'sw' | null>(null);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -196,7 +197,7 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
         onClose,
       });
     } catch (err: any) {
-      alert('Error cropping image: ' + err.message);
+      setErrorMessage(err.message || 'Gagal memotong gambar');
     } finally {
       setIsProcessing(false);
     }
@@ -363,6 +364,14 @@ export const CropModal: React.FC<CropModalProps> = ({ fileInfo, onClose, onSucce
             Reset
           </button>
         </div>
+
+        {/* Inline Error Banner */}
+        {errorMessage && (
+          <div className="mb-2 p-2.5 rounded-xl bg-rose-950/80 border border-rose-500/50 flex items-center gap-2 text-rose-300 text-xs">
+            <AlertCircle size={15} className="text-rose-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+        )}
 
         {/* Bottom Actions (Photo 4) */}
         <div className="flex items-center justify-end gap-2 pt-1">

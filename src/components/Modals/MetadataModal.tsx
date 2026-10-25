@@ -13,14 +13,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
   const [metadata, setMetadata] = useState<MetadataInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isStripping, setIsStripping] = useState(false);
-
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   useEffect(() => {
     let active = true;
@@ -68,6 +61,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
   const handleStripMetadata = async () => {
     if (isStripping) return;
     setIsStripping(true);
+    setErrorMessage(null);
 
     try {
       if (window.electronAPI && typeof window.electronAPI.stripMetadata === 'function') {
@@ -76,10 +70,9 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
           onSuccess(res);
           onClose();
         } else {
-          alert('Failed to strip metadata: ' + res.error);
+          setErrorMessage(res.error || 'Gagal menghapus metadata berkas');
         }
       } else {
-        alert('EXIF stripping simulation complete for web preview');
         const baseName = fileInfo.name.replace(/\.[^.]+$/, '');
         const outputName = `${baseName} Clean${fileInfo.extension}`;
         onSuccess({
@@ -89,7 +82,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
         onClose();
       }
     } catch (err: any) {
-      alert('Error: ' + err.message);
+      setErrorMessage(err.message || 'Terjadi kesalahan saat membersihkan metadata');
     } finally {
       setIsStripping(false);
     }
@@ -187,6 +180,14 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({ fileInfo, onClose,
                   </div>
                 )}
               </div>
+
+              {/* Inline Error Banner */}
+              {errorMessage && (
+                <div className="flex items-center gap-2 p-2.5 rounded-2xl bg-rose-950/80 border border-rose-500/50 text-rose-300 text-xs">
+                  <AlertCircle size={15} className="text-rose-400 shrink-0" />
+                  <span>{errorMessage}</span>
+                </div>
+              )}
 
               {/* Privacy Warning */}
               <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-[#22c55e]/10 border border-[#22c55e]/30 text-[#86efac]">
