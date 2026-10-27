@@ -97,3 +97,18 @@ span[class*="bg-[#4ade80]"]:not([class*="selection:"]) {
   font-weight: 800 !important;
 }
 
+/* Electron Window Controls & Drag Regions */
+.titlebar-drag-region {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.titlebar-no-drag {
+  -webkit-app-region: no-drag !important;
+}
+
+.titlebar-no-drag * {
+  -webkit-app-region: no-drag !important;
+}
+
+

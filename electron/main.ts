@@ -12,6 +12,9 @@ import {
 } from './docConverter.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+// Optimasi rendering & hilangkan lag compositing di Windows
+app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
+
 const WIN_W = 650;
 const WIN_H = 700;
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tiff', '.bmp', '.gif'];
@@ -79,9 +82,10 @@ function createWindow() {
     frame: false,
     alwaysOnTop: true,
     resizable: false,
-    hasShadow: false,
+    hasShadow: true,
+    backgroundColor: '#00000000',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
     },
@@ -99,6 +103,13 @@ function createWindow() {
       event.preventDefault();
       mainWindow?.hide();
     }
+  });
+
+  mainWindow.on('restore', () => {
+    mainWindow?.setAlwaysOnTop(true);
+  });
+  mainWindow.on('show', () => {
+    mainWindow?.setAlwaysOnTop(true);
   });
 }
 
@@ -148,7 +159,14 @@ app.on('will-quit', () => globalShortcut.unregisterAll());
 // ---------- IPC: window ----------
 
 ipcMain.on('hide-window', () => mainWindow?.hide());
+ipcMain.on('close-window', () => mainWindow?.hide());
 ipcMain.on('show-window', () => mainWindow?.show());
+ipcMain.on('minimize-window', () => {
+  if (mainWindow) {
+    mainWindow.setAlwaysOnTop(false);
+    mainWindow.minimize();
+  }
+});
 ipcMain.handle('open-in-folder', async (_event, filePath: string) => {
   if (filePath) shell.showItemInFolder(filePath);
 });

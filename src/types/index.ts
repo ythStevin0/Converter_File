@@ -65,6 +65,8 @@ export interface ElectronAPI {
   openInFolder: (filePath: string) => Promise<void>;
   hideWindow: () => void;
   showWindow: () => void;
+  minimizeWindow?: () => void;
+  closeWindow?: () => void;
   saveBase64Image: (request: {
     sourceFilePath: string;
     base64Data: string;

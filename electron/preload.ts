@@ -5,6 +5,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   openInFolder: (filePath: string) => ipcRenderer.invoke('open-in-folder', filePath),
   hideWindow: () => ipcRenderer.send('hide-window'),
   showWindow: () => ipcRenderer.send('show-window'),
+  minimizeWindow: () => ipcRenderer.send('minimize-window'),
+  closeWindow: () => ipcRenderer.send('close-window'),
   saveBase64Image: (request: any) => ipcRenderer.invoke('save-base64-image', request),
   compressImage: (request: any) => ipcRenderer.invoke('compress-image', request),
   getMetadata: (filePath: string) => ipcRenderer.invoke('get-metadata', filePath),
