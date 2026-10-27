@@ -9,6 +9,7 @@ dist-electron
 out
 build
 release/
+.vite/
 
 # Logs
 npm-debug.log*

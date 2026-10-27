@@ -6,10 +6,10 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:electron": "concurrently -k \"vite\" \"wait-on tcp:5173 && electron .\"",
+    "dev:electron": "concurrently -k \"vite\" \"wait-on tcp:127.0.0.1:5173 && electron .\"",
     "dev:portal": "npm --prefix web-portal run dev",
     "build": "tsc && vite build",
-    "build:electron": "tsc -p electron/tsconfig.json",
+    "build:electron": "tsc -p electron/tsconfig.json && node scripts/build-preload.mjs",
     "build:portal": "npm --prefix web-portal run build",
     "test:crypto": "node tests/crypto-compatibility.test.mjs",
     "test": "npm run test:crypto",
@@ -44,7 +44,8 @@
           ]
         }
       ],
-      "icon": "assets/icon.ico"
+      "icon": "assets/icon.ico",
+      "artifactName": "${productName}-Setup.${ext}"
     },
     "mac": {
       "target": [
@@ -52,7 +53,8 @@
         "zip"
       ],
       "icon": "assets/icon.png",
-      "identity": null
+      "identity": null,
+      "artifactName": "${productName}.${ext}"
     },
     "nsis": {
       "oneClick": false,
