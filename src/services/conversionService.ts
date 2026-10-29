@@ -120,6 +120,35 @@ export async function executeFileConversion(request: ConversionRequest): Promise
         return { success: true, outputName, downloadUrl };
       }
 
+      if (targetExt === 'jpg' || targetExt === 'jpeg' || targetExt === 'png') {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1240;
+        canvas.height = 1754;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, canvas.width, canvas.height);
+          ctx.fillStyle = '#22c55e';
+          ctx.fillRect(0, 0, canvas.width, 14);
+          ctx.fillStyle = '#0f172a';
+          ctx.font = 'bold 32px sans-serif';
+          ctx.fillText(baseName, 70, 90);
+          ctx.fillStyle = '#334155';
+          ctx.font = '18px sans-serif';
+          const text = await file.text();
+          const lines = text.split(/\r?\n/).slice(0, 42);
+          lines.forEach((l, i) => ctx.fillText(l.slice(0, 80), 70, 145 + i * 36));
+          const mime = targetExt === 'png' ? 'image/png' : 'image/jpeg';
+          const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob((b) => resolve(b), mime, 0.92));
+          if (blob) {
+            const downloadUrl = URL.createObjectURL(blob);
+            const outputName = `${baseName}.${targetExt}`;
+            triggerBrowserDownload(downloadUrl, outputName);
+            return { success: true, outputName, downloadUrl };
+          }
+        }
+      }
+
       // Plain text, Markdown, HTML, CSV, JSON real download
       const text = await file.text();
       const mime = targetExt === 'html' ? 'text/html' : targetExt === 'json' ? 'application/json' : 'text/plain';

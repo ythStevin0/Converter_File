@@ -331,9 +331,44 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
       await fs.writeFile(out, mdContent);
       return done(out);
     }
+
+    if (target === 'jpg' || target === 'jpeg' || target === 'png') {
+      const binaryStr = pdfBuf.toString('binary');
+      const startMarker = '\xFF\xD8\xFF';
+      const endMarker = '\xFF\xD9';
+      const startIdx = binaryStr.indexOf(startMarker);
+      const endIdx = binaryStr.indexOf(endMarker, startIdx);
+
+      if (startIdx !== -1 && endIdx !== -1 && endIdx > startIdx) {
+        const rawJpeg = Buffer.from(binaryStr.substring(startIdx, endIdx + 2), 'binary');
+        if (target === 'png') {
+          await sharp(rawJpeg).png().toFile(out);
+        } else {
+          await fs.writeFile(out, rawJpeg);
+        }
+        return done(out);
+      }
+
+      const escapeXml = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c] || c));
+      const lines = (text || title).split(/\r?\n/).slice(0, 42);
+      const svg = `
+        <svg width="1240" height="1754" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="#ffffff" />
+          <rect x="0" y="0" width="100%" height="14" fill="#22c55e" />
+          <text x="70" y="90" font-family="sans-serif" font-size="32" font-weight="bold" fill="#0f172a">${escapeXml(title)}</text>
+          ${lines.map((l, i) => `<text x="70" y="${145 + i * 36}" font-family="sans-serif" font-size="18" fill="#334155">${escapeXml(l)}</text>`).join('\n          ')}
+        </svg>`;
+      const img = sharp(Buffer.from(svg));
+      if (target === 'png') {
+        await img.png().toFile(out);
+      } else {
+        await img.jpeg({ quality: 92 }).toFile(out);
+      }
+      return done(out);
+    }
   }
 
-  // 3. Dokumen Teks (TXT / MD / HTML) -> PDF / DOCX / HTML / MD / TXT
+  // 3. Dokumen Teks (TXT / MD / HTML) -> PDF / DOCX / HTML / MD / TXT / JPG / PNG
   if (sourceCategory === 'document') {
     const rawContent = (await fs.readFile(src, 'utf-8')).toString();
     const docTitle = path.basename(src, path.extname(src));
@@ -364,6 +399,25 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
 
     if (target === 'txt') {
       await fs.writeFile(out, rawContent);
+      return done(out);
+    }
+
+    if (target === 'jpg' || target === 'jpeg' || target === 'png') {
+      const escapeXml = (s: string) => s.replace(/[<>&'"]/g, (c) => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', "'": '&apos;', '"': '&quot;' }[c] || c));
+      const lines = rawContent.split(/\r?\n/).slice(0, 42);
+      const svg = `
+        <svg width="1240" height="1754" xmlns="http://www.w3.org/2000/svg">
+          <rect width="100%" height="100%" fill="#ffffff" />
+          <rect x="0" y="0" width="100%" height="14" fill="#22c55e" />
+          <text x="70" y="90" font-family="sans-serif" font-size="32" font-weight="bold" fill="#0f172a">${escapeXml(docTitle)}</text>
+          ${lines.map((l, i) => `<text x="70" y="${145 + i * 36}" font-family="sans-serif" font-size="18" fill="#334155">${escapeXml(l)}</text>`).join('\n          ')}
+        </svg>`;
+      const img = sharp(Buffer.from(svg));
+      if (target === 'png') {
+        await img.png().toFile(out);
+      } else {
+        await img.jpeg({ quality: 92 }).toFile(out);
+      }
       return done(out);
     }
   }

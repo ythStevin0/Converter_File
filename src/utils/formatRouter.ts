@@ -81,11 +81,12 @@ export function getFormatSlicesForCategory(category: FileCategory, currentExtens
     case 'pdf':
       return [
         { id: 'fmt-docx', label: 'DOCX', type: 'format', iconName: 'FileText' },
+        { id: 'fmt-jpg', label: 'JPG', type: 'format', iconName: 'Image' },
+        { id: 'fmt-png', label: 'PNG', type: 'format', iconName: 'Image' },
         { id: 'fmt-txt', label: 'TXT', type: 'format', iconName: 'FileCode' },
         { id: 'fmt-html', label: 'HTML', type: 'format', iconName: 'Code' },
         { id: 'fmt-md', label: 'MD', type: 'format', iconName: 'FileEdit' },
         { id: 'fmt-epub', label: 'EPUB', type: 'format', iconName: 'Book' },
-        { id: 'fmt-png', label: 'PNG', type: 'format', iconName: 'Image' },
       ];
 
     case 'image': {
@@ -100,7 +101,12 @@ export function getFormatSlicesForCategory(category: FileCategory, currentExtens
         { id: 'fmt-docx', label: 'DOCX', ext: 'docx' },
       ];
 
-      const filtered = allImageFormats.filter(item => item.ext !== ext);
+      const filtered = allImageFormats.filter(item => {
+        if (ext === 'jpg' || ext === 'jpeg') {
+          return item.ext !== 'jpg';
+        }
+        return item.ext !== ext;
+      });
       return (filtered.length >= 6 ? filtered : allImageFormats).slice(0, 8).map(item => ({
         id: item.id,
         label: item.label,
@@ -113,6 +119,8 @@ export function getFormatSlicesForCategory(category: FileCategory, currentExtens
       return [
         { id: 'fmt-pdf', label: 'PDF', type: 'format', iconName: 'File' },
         { id: 'fmt-docx', label: 'DOCX', type: 'format', iconName: 'FileText' },
+        { id: 'fmt-jpg', label: 'JPG', type: 'format', iconName: 'Image' },
+        { id: 'fmt-png', label: 'PNG', type: 'format', iconName: 'Image' },
         { id: 'fmt-txt', label: 'TXT', type: 'format', iconName: 'FileCode' },
         { id: 'fmt-html', label: 'HTML', type: 'format', iconName: 'Code' },
         { id: 'fmt-md', label: 'MD', type: 'format', iconName: 'FileEdit' },
