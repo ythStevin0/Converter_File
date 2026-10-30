@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { FileText, Image as ImageIcon } from 'lucide-react';
+import { FileText, Image as ImageIcon, RotateCcw, Minus, X, Layers } from 'lucide-react';
 import { InteractiveRadialMenu, RadialSliceData } from '../components/InteractiveRadialMenu';
+import { InteractiveDropZone } from '../components/InteractiveDropZone';
 import { VertBatchSimulator } from '../components/VertBatchSimulator';
 
 interface LandingPageProps {
@@ -20,21 +21,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   // Workbench mode: 'radial' or 'vert'
   const [workbenchMode, setWorkbenchMode] = useState<'radial' | 'vert'>('radial');
 
-  // Radial simulator state
+  // Radial simulator state (matching Electron: Page_001.pdf 1.1 MB)
+  const [radialFileActive, setRadialFileActive] = useState(true);
   const [radialFormat, setRadialFormat] = useState('DOCX');
   const [radialOutputSize, setRadialOutputSize] = useState('1.2 MB');
   const [radialSpeed, setRadialSpeed] = useState('0.14 detik');
-  const [radialInputName, setRadialInputName] = useState('Annual_Report_2026.pdf');
-  const [radialInputSize, setRadialInputSize] = useState('1.4 MB');
+  const [radialInputName, setRadialInputName] = useState('Page_001.pdf');
+  const [radialInputSize, setRadialInputSize] = useState('1.1 MB');
 
   const handleRadialFileSelect = (file: File | null) => {
     if (!file) return;
     setRadialInputName(file.name);
     const sizeKB = (file.size / 1024).toFixed(1) + ' KB';
     setRadialInputSize(sizeKB);
-    setRadialFormat('DOCX');
+    const isPdf = file.name.toLowerCase().endsWith('.pdf');
+    setRadialFormat(isPdf ? 'DOCX' : 'WEBP');
     setRadialOutputSize(sizeKB);
-    setRadialSpeed('0.11 detik');
+    setRadialSpeed('0.09 detik');
+    setRadialFileActive(true);
   };
 
   const isLocalOrDirect = typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
@@ -206,66 +210,146 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
           </div>
 
-          {/* PREVIEW A: RADIAL CURSOR SIMULATOR */}
+          {/* PREVIEW A: RADIAL CURSOR SIMULATOR (MATCHING ELECTRON DEV) */}
           {workbenchMode === 'radial' && (
-            <div className="p-6 sm:p-8 space-y-6">
+            <div className="p-4 sm:p-6 space-y-5">
               {/* Quick Presets matching npm run dev:electron DropZone */}
-              <div className="flex flex-wrap items-center justify-center gap-2 pt-1">
-                <span className="text-[11px] uppercase font-mono font-bold tracking-wider text-[#94a3b8]">
-                  Uji Coba Berkas:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRadialInputName('Annual_Report_2026.pdf');
-                    setRadialInputSize('1.4 MB');
-                    setRadialFormat('DOCX');
-                    setRadialOutputSize('1.2 MB');
-                    setRadialSpeed('0.14 detik');
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                    radialInputName.endsWith('.pdf')
-                      ? 'bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e] shadow-sm'
-                      : 'bg-slate-900 text-[#94a3b8] hover:text-white border border-[#94a3b8]/40'
-                  }`}
-                >
-                  <FileText size={12} className="text-[#22c55e]" />
-                  <span>Annual_Report_2026.pdf</span>
-                  <span className="text-[10px] text-slate-400">1.4 MB</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRadialInputName('Photo_Portrait.jpg');
-                    setRadialInputSize('2.4 MB');
-                    setRadialFormat('WEBP');
-                    setRadialOutputSize('380 KB');
-                    setRadialSpeed('0.07 detik');
-                  }}
-                  className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                    radialInputName.endsWith('.jpg')
-                      ? 'bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e] shadow-sm'
-                      : 'bg-slate-900 text-[#94a3b8] hover:text-white border border-[#94a3b8]/40'
-                  }`}
-                >
-                  <ImageIcon size={12} className="text-[#22c55e]" />
-                  <span>Photo_Portrait.jpg</span>
-                  <span className="text-[10px] text-slate-400">2.4 MB</span>
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[11px] uppercase font-mono font-bold tracking-wider text-[#94a3b8]">
+                    Uji Coba Berkas:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRadialInputName('Page_001.pdf');
+                      setRadialInputSize('1.1 MB');
+                      setRadialFormat('DOCX');
+                      setRadialOutputSize('1.2 MB');
+                      setRadialSpeed('0.14 detik');
+                      setRadialFileActive(true);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      radialFileActive && radialInputName.endsWith('.pdf')
+                        ? 'bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e] shadow-sm'
+                        : 'bg-slate-900 text-[#94a3b8] hover:text-white border border-[#94a3b8]/40'
+                    }`}
+                  >
+                    <FileText size={12} className="text-[#22c55e]" />
+                    <span>Page_001.pdf</span>
+                    <span className="text-[10px] text-slate-400">1.1 MB</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRadialInputName('Photo_Portrait.jpg');
+                      setRadialInputSize('2.4 MB');
+                      setRadialFormat('WEBP');
+                      setRadialOutputSize('380 KB');
+                      setRadialSpeed('0.07 detik');
+                      setRadialFileActive(true);
+                    }}
+                    className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
+                      radialFileActive && radialInputName.endsWith('.jpg')
+                        ? 'bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e] shadow-sm'
+                        : 'bg-slate-900 text-[#94a3b8] hover:text-white border border-[#94a3b8]/40'
+                    }`}
+                  >
+                    <ImageIcon size={12} className="text-[#22c55e]" />
+                    <span>Photo_Portrait.jpg</span>
+                    <span className="text-[10px] text-slate-400">2.4 MB</span>
+                  </button>
+                </div>
               </div>
 
-              {/* Authentic Radial Menu from npm run dev:electron */}
-              <InteractiveRadialMenu
-                selectedFormat={radialFormat}
-                onSelectSlice={(slice) => {
-                  setRadialFormat(slice.label);
-                  setRadialOutputSize(slice.outputSize);
-                  setRadialSpeed(slice.speed);
-                }}
-                inputFileName={radialInputName}
-                inputFileSize={radialInputSize}
-                onFileSelect={(file) => handleRadialFileSelect(file)}
-              />
+              {/* Authentic OrbitDrop Desktop Window Frame matching npm run dev:electron */}
+              <div className="relative w-full rounded-[24px] bg-[#0b0d14]/95 border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden">
+                {/* Title Bar & Controls matching Electron */}
+                <header className="h-11 px-4 flex items-center justify-between border-b border-white/5 bg-[#0f111a]/90 select-none">
+                  {/* Logo & Engine Status */}
+                  <div className="flex items-center gap-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
+                    <span className="font-semibold text-xs tracking-wider uppercase text-white/90">OrbitDrop</span>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
+                      Local Engine
+                    </span>
+                  </div>
+
+                  {/* Window Controls */}
+                  <div className="flex items-center gap-1.5">
+                    {radialFileActive ? (
+                      <button
+                        type="button"
+                        onClick={() => setRadialFileActive(false)}
+                        className="text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-1 border border-white/5 mr-1 cursor-pointer"
+                        title="Ganti File / Buka Drop Zone"
+                      >
+                        <RotateCcw className="w-3 h-3 text-emerald-400" />
+                        <span>Ganti File</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => setRadialFileActive(true)}
+                        className="text-[11px] px-2 py-1 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 transition-all flex items-center gap-1 border border-emerald-500/30 mr-1 cursor-pointer font-medium"
+                        title="Buka Radial Menu"
+                      >
+                        <span>Buka Dial</span>
+                      </button>
+                    )}
+
+                    <div className="p-1.5 rounded-md bg-white/5 border border-white/10 text-white/60">
+                      <Layers className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="p-1.5 rounded-md bg-white/5 border border-white/10 text-white/60">
+                      <Minus className="w-3.5 h-3.5" />
+                    </div>
+                    <div className="p-1.5 rounded-md bg-white/5 border border-white/10 text-white/60">
+                      <X className="w-3.5 h-3.5" />
+                    </div>
+                  </div>
+                </header>
+
+                {/* Central Workspace: Radial Menu or DropZone */}
+                <main className="relative flex-1 flex items-center justify-center p-2 min-h-[460px]">
+                  {radialFileActive ? (
+                    <InteractiveRadialMenu
+                      selectedFormat={radialFormat}
+                      onSelectSlice={(slice) => {
+                        setRadialFormat(slice.label);
+                        setRadialOutputSize(slice.outputSize);
+                        setRadialSpeed(slice.speed);
+                      }}
+                      inputFileName={radialInputName}
+                      inputFileSize={radialInputSize}
+                      onFileSelect={(file) => handleRadialFileSelect(file)}
+                    />
+                  ) : (
+                    <InteractiveDropZone
+                      onFileSelect={(preset) => {
+                        setRadialInputName(preset.name);
+                        setRadialInputSize(preset.size);
+                        setRadialFormat(preset.format);
+                        setRadialOutputSize(preset.outputSize);
+                        setRadialSpeed(preset.speed);
+                        setRadialFileActive(true);
+                      }}
+                    />
+                  )}
+                </main>
+
+                {/* Window Footer Status matching Electron */}
+                <footer className="h-7 px-4 flex items-center justify-between border-t border-white/5 bg-[#0f111a]/90 text-[11px] text-white/40 select-none">
+                  <div className="flex items-center gap-1.5">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
+                    <span>100% Offline &amp; Privat • File diproses lokal</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span>Shortcut:</span>
+                    <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono text-[10px] border border-white/10">Alt+Space</kbd>
+                  </div>
+                </footer>
+              </div>
 
               {/* Clean Result Card (Easy to Read) */}
               <div className="bg-obsidian-950 border border-obsidian-border rounded-xl p-4 space-y-3">
