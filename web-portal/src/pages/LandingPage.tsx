@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { FileText, Image as ImageIcon, RotateCcw, Minus, X, Layers } from 'lucide-react';
+import { FileText, Image as ImageIcon, RotateCcw, Minus, X, Layers, Download } from 'lucide-react';
 import { InteractiveRadialMenu, RadialSliceData } from '../components/InteractiveRadialMenu';
 import { InteractiveDropZone } from '../components/InteractiveDropZone';
 import { VertBatchSimulator } from '../components/VertBatchSimulator';
@@ -54,6 +54,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     win: 'Installer Windows (.exe) • 64-bit',
     mac: 'Apple Silicon / Intel (.dmg) • Universal',
     src: 'Source Code Archive (.zip) • MIT',
+  };
+
+  const [installNotice, setInstallNotice] = useState<string | null>(null);
+
+  const triggerDownload = (targetFormat?: string) => {
+    const url = downloadUrls[selectedOS];
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = '';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    const osLabel = selectedOS === 'win' ? 'Windows (.exe)' : selectedOS === 'mac' ? 'macOS (.dmg)' : 'Source (.zip)';
+    setInstallNotice(`✓ Memulai unduhan OrbitDrop (${osLabel}) untuk konversi ${targetFormat || radialFormat}! Buka berkas untuk install.`);
+    setTimeout(() => setInstallNotice(null), 6000);
   };
 
   const radialBaseName = radialInputName.replace(/\.[^/.]+$/, '');
@@ -322,6 +338,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                       }}
                       inputFileName={radialInputName}
                       inputFileSize={radialInputSize}
+                      onInstall={(fmt) => triggerDownload(fmt || radialFormat)}
                       onFileSelect={(file) => handleRadialFileSelect(file)}
                     />
                   ) : (
@@ -375,7 +392,43 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 <div className="text-[11px] text-[#6e8578] pt-1">
-                  ✓ File langsung tersimpan di sebelah file asli tanpa perlu download ulang.
+                </div>
+
+                {/* Direct Install & Download Button for Selected Format */}
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={() => triggerDownload(radialFormat)}
+                    className="w-full bg-[#00e575] hover:bg-[#19ff8c] active:scale-[0.99] !text-black font-display font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-between transition-all duration-150 shadow-[0_0_20px_rgba(0,229,117,0.3)] hover:shadow-[0_0_30px_rgba(0,229,117,0.5)] cursor-pointer group"
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <Download className="w-4 h-4 text-black shrink-0 animate-bounce" />
+                      <span className="font-bold text-black text-left">
+                        Unduh &amp; Install OrbitDrop untuk Konversi ke {radialFormat}
+                      </span>
+                    </div>
+                    <span className="font-mono text-xs font-bold bg-black/15 text-black px-2.5 py-1 rounded-md group-hover:translate-x-1 transition shrink-0">
+                      {selectedOS === 'win' ? 'Setup .exe' : selectedOS === 'mac' ? 'Apple .dmg' : 'Source .zip'} &rarr;
+                    </span>
+                  </button>
+                </div>
+
+                {installNotice && (
+                  <div className="p-2.5 rounded-lg bg-[#00e575]/15 border border-[#00e575]/40 text-[#4ade80] text-xs font-medium flex items-center justify-between">
+                    <span>{installNotice}</span>
+                    <button
+                      type="button"
+                      onClick={() => setInstallNotice(null)}
+                      className="text-[#4ade80] hover:text-white ml-2 text-xs cursor-pointer font-bold"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                )}
+
+                <div className="text-[11px] text-[#6e8578] flex items-center justify-between pt-1">
+                  <span>✓ Bebas registrasi &bull; 100% Offline di CPU Lokal</span>
+                  <span className="text-[#8ca396]">Ukuran: ~93 MB</span>
                 </div>
               </div>
             </div>
