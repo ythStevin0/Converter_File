@@ -8,7 +8,9 @@ import {
   Minimize2,
   Tag,
   EyeOff,
-  Sliders,
+  PenTool,
+  Hash,
+  Lock,
   Layers,
   Zap,
 } from 'lucide-react';
@@ -24,32 +26,39 @@ export interface RadialSliceData {
   description?: string;
 }
 
-// PDF Preset Format Slices (4 items matching Photo 1: DOCX, JPG, PNG, TXT)
-const PDF_FORMAT_SLICES: RadialSliceData[] = [
-  { id: 'fmt-docx', label: 'DOCX', type: 'format', ext: 'docx', outputSize: '1.2 MB', speed: '0.14 detik' },
-  { id: 'fmt-jpg', label: 'JPG', type: 'format', ext: 'jpg', outputSize: '680 KB', speed: '0.09 detik' },
-  { id: 'fmt-png', label: 'PNG', type: 'format', ext: 'png', outputSize: '950 KB', speed: '0.11 detik' },
-  { id: 'fmt-txt', label: 'TXT', type: 'format', ext: 'txt', outputSize: '45 KB', speed: '0.04 detik' },
+// 1. PDF Format Slices (7 items matching Electron formatRouter.ts: DOCX, JPG, PNG, TXT, HTML, MD, EPUB)
+export const PDF_FORMAT_SLICES: RadialSliceData[] = [
+  { id: 'fmt-docx', label: 'DOCX', type: 'format', ext: 'docx', outputSize: '1.2 MB', speed: '0.14 detik', description: 'Konversi teks dokumen Word berekstensi .docx' },
+  { id: 'fmt-jpg', label: 'JPG', type: 'format', ext: 'jpg', outputSize: '680 KB', speed: '0.09 detik', description: 'Ekstrak tiap halaman PDF menjadi foto JPEG tajam' },
+  { id: 'fmt-png', label: 'PNG', type: 'format', ext: 'png', outputSize: '950 KB', speed: '0.11 detik', description: 'Ekstrak halaman PDF ke format gambar PNG lossless' },
+  { id: 'fmt-txt', label: 'TXT', type: 'format', ext: 'txt', outputSize: '45 KB', speed: '0.04 detik', description: 'Ekstrak konten teks murni tanpa format' },
+  { id: 'fmt-html', label: 'HTML', type: 'format', ext: 'html', outputSize: '120 KB', speed: '0.08 detik', description: 'Konversi struktur PDF ke halaman web HTML5' },
+  { id: 'fmt-md', label: 'MD', type: 'format', ext: 'md', outputSize: '35 KB', speed: '0.05 detik', description: 'Ekstrak teks ke format Markdown terstruktur' },
+  { id: 'fmt-epub', label: 'EPUB', type: 'format', ext: 'epub', outputSize: '820 KB', speed: '0.12 detik', description: 'Konversi buku digital e-reader EPUB' },
 ];
 
-// Image Preset Format Slices (6 items: PNG, WEBP, AVIF, TIFF, PDF, DOCX)
-const IMAGE_FORMAT_SLICES: RadialSliceData[] = [
-  { id: 'fmt-png', label: 'PNG', type: 'format', ext: 'png', outputSize: '920 KB', speed: '0.10 detik' },
-  { id: 'fmt-webp', label: 'WEBP', type: 'format', ext: 'webp', outputSize: '380 KB', speed: '0.07 detik' },
-  { id: 'fmt-avif', label: 'AVIF', type: 'format', ext: 'avif', outputSize: '290 KB', speed: '0.15 detik' },
-  { id: 'fmt-tiff', label: 'TIFF', type: 'format', ext: 'tiff', outputSize: '2.6 MB', speed: '0.12 detik' },
-  { id: 'fmt-pdf', label: 'PDF', type: 'format', ext: 'pdf', outputSize: '1.1 MB', speed: '0.09 detik' },
-  { id: 'fmt-docx', label: 'DOCX', type: 'format', ext: 'docx', outputSize: '1.4 MB', speed: '0.13 detik' },
+// 2. All Image Format Slices (matching Electron formatRouter.ts)
+const ALL_IMAGE_FORMAT_SLICES: RadialSliceData[] = [
+  { id: 'fmt-png', label: 'PNG', type: 'format', ext: 'png', outputSize: '920 KB', speed: '0.10 detik', description: 'Format lossless dengan transparansi kristal' },
+  { id: 'fmt-jpg', label: 'JPG', type: 'format', ext: 'jpg', outputSize: '650 KB', speed: '0.08 detik', description: 'Kompresi foto JPEG standar industri' },
+  { id: 'fmt-webp', label: 'WEBP', type: 'format', ext: 'webp', outputSize: '380 KB', speed: '0.07 detik', description: 'Format web modern Google efisiensi tinggi' },
+  { id: 'fmt-avif', label: 'AVIF', type: 'format', ext: 'avif', outputSize: '290 KB', speed: '0.15 detik', description: 'Format generasi baru AV1 kompresi superior' },
+  { id: 'fmt-tiff', label: 'TIFF', type: 'format', ext: 'tiff', outputSize: '2.6 MB', speed: '0.12 detik', description: 'Master gambar resolusi tinggi untuk percetakan' },
+  { id: 'fmt-bmp', label: 'BMP', type: 'format', ext: 'bmp', outputSize: '3.1 MB', speed: '0.06 detik', description: 'Bitmap mentah tanpa kompresi' },
+  { id: 'fmt-pdf', label: 'PDF', type: 'format', ext: 'pdf', outputSize: '1.1 MB', speed: '0.09 detik', description: 'Bungkus gambar ke dalam dokumen portabel PDF' },
+  { id: 'fmt-docx', label: 'DOCX', type: 'format', ext: 'docx', outputSize: '1.4 MB', speed: '0.13 detik', description: 'Sematkan gambar ke dalam dokumen Microsoft Word' },
 ];
 
-// Quick Action Slices (6 items matching Photo 2: COMPRESS, METADATA, EDIT, ADD BG, CROP, REDACT)
-const QUICK_ACTIONS_SLICES: RadialSliceData[] = [
-  { id: 'act-compress', label: 'COMPRESS', type: 'action', icon: Minimize2, outputSize: '320 KB', speed: '0.08 detik', description: 'Kompresi ukuran berkas tanpa merusak kualitas' },
-  { id: 'act-metadata', label: 'METADATA', type: 'action', icon: Tag, outputSize: '1.4 MB', speed: '0.03 detik', description: 'Bersihkan jejak EXIF / data tersembunyi' },
-  { id: 'act-edit', label: 'EDIT', type: 'action', icon: Sliders, outputSize: '1.4 MB', speed: '0.05 detik', description: 'Atur kontras, resolusi & kecerahan' },
-  { id: 'act-addbg', label: 'ADD BG', type: 'action', icon: Palette, outputSize: '950 KB', speed: '0.10 detik', description: 'Beri latar belakang kanvas gradasi' },
-  { id: 'act-crop', label: 'CROP', type: 'action', icon: Crop, outputSize: '780 KB', speed: '0.06 detik', description: 'Potong rasio piksel presisi' },
-  { id: 'act-redact', label: 'REDACT', type: 'action', icon: EyeOff, outputSize: '1.1 MB', speed: '0.09 detik', description: 'Sensor teks atau area sensitif berkas' },
+// 3. Quick Action Tools (8 items matching Electron formatRouter.ts)
+export const ALL_QUICK_ACTIONS_SLICES: RadialSliceData[] = [
+  { id: 'crop', label: 'CROP', type: 'action', icon: Crop, outputSize: '780 KB', speed: '0.06 detik', description: 'Potong rasio piksel presisi' },
+  { id: 'add-bg', label: 'ADD BG', type: 'action', icon: Palette, outputSize: '950 KB', speed: '0.10 detik', description: 'Beri latar belakang kanvas & padding' },
+  { id: 'compress', label: 'COMPRESS', type: 'action', icon: Minimize2, outputSize: '320 KB', speed: '0.08 detik', description: 'Kompresi ukuran berkas tanpa merusak kualitas' },
+  { id: 'metadata', label: 'METADATA', type: 'action', icon: Tag, outputSize: '1.1 MB', speed: '0.03 detik', description: 'Bersihkan jejak EXIF & metadata tersembunyi' },
+  { id: 'redact', label: 'REDACT', type: 'action', icon: EyeOff, outputSize: '1.1 MB', speed: '0.09 detik', description: 'Sensor teks atau area sensitif berkas' },
+  { id: 'annotate', label: 'ANNOTATE', type: 'action', icon: PenTool, outputSize: '1.1 MB', speed: '0.05 detik', description: 'Coretan cepat, panah & catatan teks' },
+  { id: 'checksum', label: 'CHECKSUM', type: 'action', icon: Hash, outputSize: 'SHA-256', speed: '0.02 detik', description: 'Hitung & salin SHA-256 Checksum integritas berkas' },
+  { id: 'encrypt', label: 'ENCRYPT', type: 'action', icon: Lock, outputSize: '.locked', speed: '0.11 detik', description: 'Enkripsi offline AES-256-GCM dengan kata sandi' },
 ];
 
 interface InteractiveRadialMenuProps {
@@ -57,7 +66,7 @@ interface InteractiveRadialMenuProps {
   onSelectSlice: (slice: RadialSliceData) => void;
   inputFileName: string;
   inputFileSize: string;
-  onFileSelect: (file: File) => void;
+  onFileSelect?: (file: File) => void;
 }
 
 export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
@@ -65,21 +74,43 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
   onSelectSlice,
   inputFileName,
   inputFileSize,
-  onFileSelect,
 }) => {
   const [ringMode, setRingMode] = useState<'format' | 'action'>('format');
   const [hoveredSlice, setHoveredSlice] = useState<RadialSliceData | null>(null);
 
-  const isPdf = useMemo(() => {
-    return inputFileName.toLowerCase().endsWith('.pdf');
+  const fileExt = useMemo(() => {
+    const parts = inputFileName.toLowerCase().split('.');
+    return parts.length > 1 ? parts.pop() || '' : '';
   }, [inputFileName]);
 
-  const activeSlices = useMemo(() => {
-    if (ringMode === 'action') {
-      return QUICK_ACTIONS_SLICES;
+  const isPdf = fileExt === 'pdf';
+
+  // Format slices contextual to file category (exact matching Electron formatRouter.ts)
+  const formatSlices = useMemo(() => {
+    if (isPdf) {
+      return PDF_FORMAT_SLICES;
     }
-    return isPdf ? PDF_FORMAT_SLICES : IMAGE_FORMAT_SLICES;
-  }, [ringMode, isPdf]);
+    // For images, filter out the input extension
+    const filtered = ALL_IMAGE_FORMAT_SLICES.filter((s) => {
+      if (fileExt === 'jpg' || fileExt === 'jpeg') {
+        return s.ext !== 'jpg';
+      }
+      return s.ext !== fileExt;
+    });
+    return filtered.length >= 6 ? filtered : ALL_IMAGE_FORMAT_SLICES;
+  }, [isPdf, fileExt]);
+
+  // Quick actions contextual to category (in Electron: PDF has 4, Image has 8)
+  const quickActionSlices = useMemo(() => {
+    if (isPdf) {
+      return ALL_QUICK_ACTIONS_SLICES.filter((s) =>
+        ['compress', 'metadata', 'checksum', 'encrypt'].includes(s.id)
+      );
+    }
+    return ALL_QUICK_ACTIONS_SLICES;
+  }, [isPdf]);
+
+  const activeSlices = ringMode === 'format' ? formatSlices : quickActionSlices;
 
   const toggleRingMode = useCallback(() => {
     setRingMode((prev) => (prev === 'format' ? 'action' : 'format'));
@@ -98,9 +129,9 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [toggleRingMode]);
 
-  // Center & Radii matching Electron RadialMenu (center: 250, innerRadius: 84, outerRadius: 226)
+  // Center & Radii matching Electron RadialMenu (center: 250, innerRadius: 86, outerRadius: 225)
   const center = 250;
-  const outerRadius = 224;
+  const outerRadius = 225;
   const innerRadius = 86;
   const total = activeSlices.length;
 
@@ -117,7 +148,7 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
           }}
         />
 
-        {/* Omnitrix Mechanical Bezel & Guide Rings */}
+        {/* Omnitrix Mechanical Bezel & Guide Rings matching Electron RadialMenu */}
         <svg viewBox="0 0 500 500" className="absolute inset-0 w-full h-full pointer-events-none z-0">
           {/* Outer Matte Grey Industrial Collar */}
           <circle
@@ -174,7 +205,7 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
         >
           <AnimatePresence mode="wait">
             <motion.g
-              key={`${ringMode}-${total}`}
+              key={`${ringMode}-${total}-${fileExt}`}
               initial={{ rotate: -15, opacity: 0, scale: 0.94 }}
               animate={{ rotate: 0, opacity: 1, scale: 1 }}
               exit={{ rotate: 15, opacity: 0, scale: 0.94 }}
@@ -182,12 +213,12 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
               style={{ transformOrigin: '250px 250px' }}
             >
               {activeSlices.map((item, index) => {
-                // Angular calculation centering slice 0 at the top (12 o'clock)
+                // Angular calculation matching Electron: slice 0 starts at 12 o'clock and rotates clockwise
                 const sliceAngle = (2 * Math.PI) / total;
-                const paddingAngle = Math.min(0.065, 0.42 / total);
+                const paddingAngle = Math.min(0.065, 0.45 / total);
                 
-                const startAngle = index * sliceAngle - sliceAngle / 2 + paddingAngle / 2 - Math.PI / 2;
-                const endAngle = (index + 1) * sliceAngle - sliceAngle / 2 - paddingAngle / 2 - Math.PI / 2;
+                const startAngle = index * sliceAngle + paddingAngle / 2 - Math.PI / 2;
+                const endAngle = (index + 1) * sliceAngle - paddingAngle / 2 - Math.PI / 2;
                 const midAngle = (startAngle + endAngle) / 2;
 
                 const xOutStart = center + outerRadius * Math.cos(startAngle);
@@ -314,7 +345,7 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
                       textAnchor="middle"
                       className="pointer-events-none font-sans font-black uppercase select-none"
                       fill={isActive ? '#000000' : '#f8fafc'}
-                      fontSize={isTool ? (total > 6 ? '11px' : '12px') : (total > 5 ? '13px' : '15px')}
+                      fontSize={isTool ? (total > 6 ? '11px' : '12px') : total > 6 ? '12px' : total > 5 ? '13px' : '15px'}
                       letterSpacing="0.05em"
                       style={{
                         textShadow: isActive
@@ -443,7 +474,9 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
             }`}
           >
             <Layers size={12} strokeWidth={2.4} />
-            <span className={ringMode === 'format' ? '!text-black' : ''}>Formats ({isPdf ? PDF_FORMAT_SLICES.length : IMAGE_FORMAT_SLICES.length})</span>
+            <span className={ringMode === 'format' ? '!text-black' : ''}>
+              Formats ({formatSlices.length})
+            </span>
           </button>
 
           <button
@@ -459,7 +492,9 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
             }`}
           >
             <Zap size={12} strokeWidth={2.4} />
-            <span className={ringMode === 'action' ? '!text-black' : ''}>Quick Actions ({QUICK_ACTIONS_SLICES.length})</span>
+            <span className={ringMode === 'action' ? '!text-black' : ''}>
+              Quick Actions ({quickActionSlices.length})
+            </span>
           </button>
 
           <div className="px-2.5 py-0.5 text-[10px] font-mono text-slate-400 border-l border-slate-600/60 ml-1 flex items-center gap-1.5">
