@@ -14,6 +14,7 @@ interface RadialMenuProps {
   isConverting: boolean;
   conversionSuccess: boolean;
   conversionError: string | null;
+  onClearError?: () => void;
   onClose?: () => void;
   isModalOpen?: boolean;
 }
@@ -25,17 +26,26 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   isConverting,
   conversionSuccess,
   conversionError,
+  onClearError,
   onClose,
   isModalOpen = false,
 }) => {
   const [ringMode, setRingMode] = useState<MenuRingMode>('format');
   const [hoveredSlice, setHoveredSlice] = useState<RadialSliceItem | null>(null);
+  const [selectedFormat, setSelectedFormat] = useState<string>('DOCX');
 
   // Compute format slices contextual to the file
   const formatSlices = React.useMemo(() => {
     if (!fileInfo) return [];
     return getFormatSlicesForCategory(fileInfo.category, fileInfo.extension);
   }, [fileInfo]);
+
+  // Synchronize default selected format when file changes
+  useEffect(() => {
+    if (formatSlices.length > 0) {
+      setSelectedFormat(formatSlices[0].label);
+    }
+  }, [fileInfo, formatSlices]);
 
   // Compute quick action slices contextual to the file category
   const quickActionSlices = React.useMemo(() => {
@@ -76,6 +86,23 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
     }
   };
 
+  const handleSliceHover = (slice: RadialSliceItem | null) => {
+    setHoveredSlice(slice);
+    if (slice && conversionError && onClearError) {
+      onClearError();
+    }
+  };
+
+  const handleSliceSelect = (slice: RadialSliceItem, droppedFile?: File) => {
+    if (slice.type === 'format') {
+      setSelectedFormat(slice.label);
+    }
+    if (conversionError && onClearError) {
+      onClearError();
+    }
+    onSelectAction(slice, droppedFile);
+  };
+
   // Polar coordinate drag math: automatically detects slice under cursor
   const handleWheelDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -97,11 +124,11 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
       const sliceIndex = Math.floor(angle / sliceAngle) % activeSlices.length;
       const targetSlice = activeSlices[sliceIndex];
       if (targetSlice && hoveredSlice?.id !== targetSlice.id) {
-        setHoveredSlice(targetSlice);
+        handleSliceHover(targetSlice);
       }
     } else if (dist < 84) {
       if (hoveredSlice !== null) {
-        setHoveredSlice(null);
+        handleSliceHover(null);
       }
     }
   };
@@ -124,7 +151,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
       const sliceIndex = Math.floor(angle / sliceAngle) % activeSlices.length;
       const targetSlice = activeSlices[sliceIndex];
       if (targetSlice) {
-        onSelectAction(targetSlice, file);
+        handleSliceSelect(targetSlice, file);
         setHoveredSlice(null);
         return;
       }
@@ -218,6 +245,7 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
         <svg
           viewBox="0 0 500 500"
           className="w-full h-full filter drop-shadow-2xl overflow-visible z-10"
+          onMouseLeave={() => handleSliceHover(null)}
         >
           <AnimatePresence mode="wait">
             <motion.g
@@ -238,8 +266,9 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
                   outerRadius={225}
                   center={250}
                   isActive={hoveredSlice?.id === item.id}
-                  onHover={(slice) => setHoveredSlice(slice)}
-                  onSelect={(slice, droppedFile) => onSelectAction(slice, droppedFile)}
+                  isSelected={false}
+                  onHover={handleSliceHover}
+                  onSelect={handleSliceSelect}
                 />
               ))}
             </motion.g>
@@ -249,10 +278,12 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
         {/* Central Indicator Circle (Size when idle -> Action on hover) */}
         <CenterCircle
           fileInfo={fileInfo}
+          selectedFormat={selectedFormat}
           hoveredSlice={hoveredSlice}
           isConverting={isConverting}
           conversionSuccess={conversionSuccess}
           conversionError={conversionError}
+          onClearError={onClearError}
           radius={76}
           center={250}
         />

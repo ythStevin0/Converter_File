@@ -14,6 +14,7 @@ interface RadialSliceProps {
   outerRadius?: number;
   center?: number;
   isActive: boolean;
+  isSelected?: boolean;
   onHover: (item: RadialSliceItem | null) => void;
   onSelect: (item: RadialSliceItem, droppedFile?: File) => void;
 }
@@ -40,6 +41,7 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
   outerRadius = 222,
   center = 250,
   isActive,
+  isSelected = false,
   onHover,
   onSelect,
 }) => {
@@ -88,11 +90,7 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
   const labelX = center + labelYOffset * Math.cos(midAngle);
   const labelY = center + labelYOffset * Math.sin(midAngle);
 
-  // Subtle shift on hover
-  const hoverShift = isActive ? 5 : 0;
-  const shiftX = hoverShift * Math.cos(midAngle);
-  const shiftY = hoverShift * Math.sin(midAngle);
-
+  const isHighlighted = isActive;
   const IconComponent = ACTION_ICONS[item.id] || (item.iconName ? File : null);
   const gradientId = `slice-grad-${item.id}-${index}`;
 
@@ -102,10 +100,6 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
       tabIndex={0}
       aria-label={item.description || item.label}
       className="cursor-pointer select-none focus:outline-none"
-      style={{
-        transform: `translate(${shiftX}px, ${shiftY}px)`,
-        transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
-      }}
       onMouseEnter={() => onHover(item)}
       onMouseLeave={() => onHover(null)}
       onClick={() => onSelect(item)}
@@ -142,7 +136,7 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
       <defs>
         {/* Omnitrix Matte Charcoal vs Alien Green Hourglass */}
         <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
-          {isActive ? (
+          {isHighlighted ? (
             <>
               <stop offset="0%" stopColor="#4ade80" stopOpacity="1" />
               <stop offset="55%" stopColor="#22c55e" stopOpacity="1" />
@@ -160,15 +154,15 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
           <feDropShadow 
             dx="0" 
             dy="2" 
-            stdDeviation={isActive ? "14" : "4"} 
-            floodColor={isActive ? "#22c55e" : "rgba(0, 0, 0, 0.7)"} 
-            floodOpacity={isActive ? "0.9" : "0.5"} 
+            stdDeviation={isHighlighted ? "14" : "4"} 
+            floodColor={isHighlighted ? "#22c55e" : "rgba(0, 0, 0, 0.7)"} 
+            floodOpacity={isHighlighted ? "0.9" : "0.5"} 
           />
         </filter>
       </defs>
 
       {/* Outer radioactive ambient glow when active */}
-      {isActive && (
+      {isHighlighted && (
         <path
           d={pathData}
           fill="#22c55e"
@@ -182,8 +176,8 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
       <motion.path
         d={pathData}
         fill={`url(#${gradientId})`}
-        stroke={isActive ? '#ffffff' : 'rgba(203, 213, 225, 0.45)'}
-        strokeWidth={isActive ? 2.5 : 1.5}
+        stroke={isHighlighted ? '#ffffff' : 'rgba(203, 213, 225, 0.45)'}
+        strokeWidth={isHighlighted ? 2.5 : 1.5}
         strokeLinejoin="round"
         strokeLinecap="round"
         filter={`url(#glow-${item.id})`}
@@ -197,7 +191,7 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
         <g transform={`translate(${iconX - 10}, ${iconY - 10})`} className="pointer-events-none">
           <IconComponent
             size={20}
-            color={isActive ? '#000000' : '#94a3b8'}
+            color={isHighlighted ? '#000000' : '#94a3b8'}
             strokeWidth={2.4}
           />
         </g>
@@ -209,11 +203,11 @@ export const RadialSlice: React.FC<RadialSliceProps> = ({
         y={isTool ? labelY + 4 : labelY + 5}
         textAnchor="middle"
         className="pointer-events-none font-sans font-black uppercase select-none"
-        fill={isActive ? '#000000' : '#f8fafc'}
+        fill={isHighlighted ? '#000000' : '#f8fafc'}
         fontSize={isTool ? (total > 6 ? '11px' : '12px') : (total > 5 ? '13px' : '15px')}
         letterSpacing="0.05em"
         style={{
-          textShadow: isActive 
+          textShadow: isHighlighted 
             ? 'none' 
             : '0 1px 3px rgba(0,0,0,0.9)',
         }}

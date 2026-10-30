@@ -82,6 +82,8 @@ export interface ElectronAPI {
   readFileBase64: (filePath: string) => Promise<{ success: boolean; dataUrl?: string; error?: string }>;
   getFilePath?: (file: any) => string;
   onFileDropTrigger?: (callback: (fileInfo: DroppedFileInfo) => void) => void;
+  loadPresetFile?: (presetName: string) => Promise<DroppedFileInfo>;
+  selectFile?: () => Promise<DroppedFileInfo | null>;
 }
 
 declare global {

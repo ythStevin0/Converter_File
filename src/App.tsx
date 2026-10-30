@@ -165,9 +165,11 @@ export const App: React.FC = () => {
         setTimeout(() => setConversionSuccess(false), 3500);
       } else {
         setConversionError(res.error || 'Konversi format ini belum didukung');
+        setTimeout(() => setConversionError(null), 4000);
       }
     } catch (err: any) {
       setConversionError(err.message || 'Terjadi kesalahan saat konversi file');
+      setTimeout(() => setConversionError(null), 4000);
     } finally {
       setIsConverting(false);
     }
@@ -290,6 +292,7 @@ export const App: React.FC = () => {
                 isConverting={isConverting}
                 conversionSuccess={conversionSuccess}
                 conversionError={conversionError}
+                onClearError={() => setConversionError(null)}
                 onClose={handleClose}
                 isModalOpen={activeModal !== null}
               />

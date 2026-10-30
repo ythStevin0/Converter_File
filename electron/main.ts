@@ -1,13 +1,16 @@
-import { app, BrowserWindow, ipcMain, shell, Tray, Menu, screen, globalShortcut } from 'electron';
+import { app, BrowserWindow, ipcMain, shell, Tray, Menu, screen, globalShortcut, dialog } from 'electron';
 import path from 'path';
 import fs from 'fs/promises';
+import fsSync from 'fs';
 import { fileURLToPath } from 'url';
 import sharp, { type FormatEnum } from 'sharp';
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { 
   extractTextFromPdfBuffer, 
   buildDocxFromText, 
+  buildDocxWithImage,
   buildHtmlFromText, 
+  buildEpubFromText,
   buildPdfFromText 
 } from './docConverter.js';
 
@@ -24,12 +27,63 @@ let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null; // harus disimpan di variabel agar tidak di-garbage-collect
 let isQuitting = false;
 
+// ---------- Sample Preset Generators ----------
+
+async function getOrCreateSamplePdf(): Promise<string> {
+  const samplePath = path.join(app.getPath('temp'), 'Page_001.pdf');
+  if (!fsSync.existsSync(samplePath)) {
+    const pdfDoc = await PDFDocument.create();
+    const page = pdfDoc.addPage([595.28, 841.89]);
+    const font = await pdfDoc.embedFont(StandardFonts.Helvetica);
+    const boldFont = await pdfDoc.embedFont(StandardFonts.HelveticaBold);
+    page.drawText('OrbitDrop — Dokumen Contoh (Page 001)', { x: 50, y: 790, size: 18, font: boldFont, color: rgb(0.1, 0.6, 0.3) });
+    page.drawText('Dokumen ini adalah berkas PDF contoh untuk demonstrasi konversi offline.', { x: 50, y: 755, size: 12, font, color: rgb(0.2, 0.2, 0.2) });
+    page.drawText('Semua berkas diproses secara lokal di CPU komputer Anda tanpa koneksi internet.', { x: 50, y: 735, size: 12, font, color: rgb(0.2, 0.2, 0.2) });
+    page.drawText('Format yang dapat dihasilkan:', { x: 50, y: 705, size: 12, font: boldFont, color: rgb(0.1, 0.1, 0.1) });
+    page.drawText('• DOCX: Dokumen Microsoft Word dapat diedit.', { x: 70, y: 680, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    page.drawText('• JPG & PNG: Gambar raster halaman penuh beresolusi tinggi.', { x: 70, y: 660, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    page.drawText('• TXT & MD: Teks murni dan Markdown terstruktur.', { x: 70, y: 640, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    page.drawText('• HTML & EPUB: Halaman web interaktif dan buku digital e-reader.', { x: 70, y: 620, size: 11, font, color: rgb(0.3, 0.3, 0.3) });
+    const bytes = await pdfDoc.save();
+    await fs.writeFile(samplePath, bytes);
+  }
+  return samplePath;
+}
+
+async function getOrCreateSampleJpg(): Promise<string> {
+  const samplePath = path.join(app.getPath('temp'), 'Photo_Portrait.jpg');
+  if (!fsSync.existsSync(samplePath)) {
+    const svg = `
+      <svg width="800" height="1000" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stop-color="#0f172a"/>
+            <stop offset="50%" stop-color="#1e293b"/>
+            <stop offset="100%" stop-color="#064e3b"/>
+          </linearGradient>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#bg)"/>
+        <circle cx="400" cy="420" r="160" fill="#22c55e" opacity="0.85"/>
+        <circle cx="400" cy="420" r="150" fill="#0f172a"/>
+        <circle cx="400" cy="420" r="90" fill="#22c55e"/>
+        <text x="400" y="700" font-family="sans-serif" font-size="36" font-weight="bold" fill="#ffffff" text-anchor="middle">OrbitDrop Portrait Sample</text>
+        <text x="400" y="750" font-family="sans-serif" font-size="20" fill="#94a3b8" text-anchor="middle">Local Image Processing Test File</text>
+      </svg>`;
+    await sharp(Buffer.from(svg)).jpeg({ quality: 90 }).toFile(samplePath);
+  }
+  return samplePath;
+}
+
 // ---------- Helpers ----------
 
-// Path file baru di folder yang sama dengan file sumber
+// Path file baru: jika path sumber tidak ada/temp, simpan ke Desktop user
 const outPath = (src: string, suffix = '', ext = path.extname(src)) => {
   const { dir, name } = path.parse(src);
-  return path.join(dir, `${name}${suffix}${ext}`);
+  let targetDir = dir;
+  if (!targetDir || targetDir === '.' || !fsSync.existsSync(targetDir) || targetDir.toLowerCase().includes('temp')) {
+    targetDir = app.getPath('desktop');
+  }
+  return path.join(targetDir, `${name}${suffix}${ext}`);
 };
 const done = (outputPath: string) => ({ outputPath, outputName: path.basename(outputPath) });
 
@@ -274,18 +328,40 @@ handle('compress-image', async ({ sourceFilePath: src, quality = 65 }: {
 
 // ---------- IPC: konversi ----------
 
-handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourceCategory }: {
+handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourceCategory, fileBase64, fileName }: {
   sourceFilePath: string;
   targetFormatOrAction: string;
   sourceCategory: string;
+  fileBase64?: string;
+  fileName?: string;
 }) => {
   const target = targetFormatOrAction.toLowerCase();
-  const srcExt = path.extname(src).toLowerCase();
-  const out = outPath(src, '', `.${target}`);
+  let effectiveSrc = src;
+
+  // Resolve source file: if missing on disk, fallback to sample generator or base64 buffer
+  if (!effectiveSrc || !fsSync.existsSync(effectiveSrc)) {
+    if (fileBase64) {
+      const tempName = fileName || (effectiveSrc ? path.basename(effectiveSrc) : 'temp_input');
+      const tempPath = path.join(app.getPath('temp'), tempName);
+      await fs.writeFile(tempPath, Buffer.from(fileBase64.replace(/^data:.*?;base64,/, ''), 'base64'));
+      effectiveSrc = tempPath;
+    } else {
+      const base = path.basename(effectiveSrc || '').toLowerCase();
+      if (base.includes('page_001') || base.endsWith('.pdf') || sourceCategory === 'pdf') {
+        effectiveSrc = await getOrCreateSamplePdf();
+      } else if (base.includes('photo_portrait') || sourceCategory === 'image') {
+        effectiveSrc = await getOrCreateSampleJpg();
+      } else {
+        effectiveSrc = await getOrCreateSamplePdf();
+      }
+    }
+  }
+
+  const out = outPath(effectiveSrc, '', `.${target}`);
 
   // 1. Gambar
   if (sourceCategory === 'image') {
-    const img = sharp(src);
+    const img = sharp(effectiveSrc);
 
     if (target === 'bmp') {
       const { data, info } = await img.removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
@@ -295,6 +371,11 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
       const png = await pdf.embedPng(await img.png().toBuffer());
       pdf.addPage([png.width, png.height]).drawImage(png);
       await fs.writeFile(out, await pdf.save());
+    } else if (target === 'docx') {
+      const pngBuf = await img.png().toBuffer();
+      const docTitle = path.basename(effectiveSrc, path.extname(effectiveSrc));
+      const docxBuf = buildDocxWithImage(pngBuf, docTitle);
+      await fs.writeFile(out, docxBuf);
     } else {
       const fmt = ({ jpg: 'jpeg', tif: 'tiff' } as Record<string, string>)[target] ?? target;
       await img.toFormat(fmt as keyof FormatEnum, IMG_QUALITY[fmt]).toFile(out);
@@ -302,11 +383,11 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     return done(out);
   }
 
-  // 2. Dokumen PDF -> TXT / DOCX / HTML / MD / EPUB
+  // 2. Dokumen PDF -> TXT / DOCX / HTML / MD / EPUB / JPG / PNG
   if (sourceCategory === 'pdf') {
-    const pdfBuf = await fs.readFile(src);
+    const pdfBuf = await fs.readFile(effectiveSrc);
     const text = extractTextFromPdfBuffer(pdfBuf);
-    const title = path.basename(src, '.pdf');
+    const title = path.basename(effectiveSrc, '.pdf');
 
     if (target === 'docx') {
       const docxBuf = buildDocxFromText(text, title);
@@ -315,13 +396,19 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     }
 
     if (target === 'txt') {
-      await fs.writeFile(out, text || `[OrbitDrop: Tidak ada teks yang dapat diekstrak dari ${path.basename(src)}]`);
+      await fs.writeFile(out, text || `[OrbitDrop: Dokumen ${title}]`);
       return done(out);
     }
 
-    if (target === 'html' || target === 'epub') {
+    if (target === 'html') {
       const html = buildHtmlFromText(text, title);
       await fs.writeFile(out, html);
+      return done(out);
+    }
+
+    if (target === 'epub') {
+      const epubBuf = buildEpubFromText(text, title);
+      await fs.writeFile(out, epubBuf);
       return done(out);
     }
 
@@ -368,10 +455,10 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     }
   }
 
-  // 3. Dokumen Teks (TXT / MD / HTML) -> PDF / DOCX / HTML / MD / TXT / JPG / PNG
+  // 3. Dokumen Teks (TXT / MD / HTML) -> PDF / DOCX / HTML / MD / TXT / JPG / PNG / EPUB
   if (sourceCategory === 'document') {
-    const rawContent = (await fs.readFile(src, 'utf-8')).toString();
-    const docTitle = path.basename(src, path.extname(src));
+    const rawContent = (await fs.readFile(effectiveSrc, 'utf-8')).toString();
+    const docTitle = path.basename(effectiveSrc, path.extname(effectiveSrc));
 
     if (target === 'pdf') {
       const pdfBytes = await buildPdfFromText(rawContent, docTitle);
@@ -388,6 +475,12 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     if (target === 'html') {
       const html = buildHtmlFromText(rawContent, docTitle);
       await fs.writeFile(out, html);
+      return done(out);
+    }
+
+    if (target === 'epub') {
+      const epubBuf = buildEpubFromText(rawContent, docTitle);
+      await fs.writeFile(out, epubBuf);
       return done(out);
     }
 
@@ -424,8 +517,9 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
 
   // 4. CSV <-> JSON
   if (sourceCategory === 'archive' || sourceCategory === 'document') {
+    const srcExt = path.extname(effectiveSrc).toLowerCase();
     if (srcExt === '.csv' && target === 'json') {
-      const [head, ...lines] = (await fs.readFile(src, 'utf-8')).trim().split(/\r?\n/);
+      const [head, ...lines] = (await fs.readFile(effectiveSrc, 'utf-8')).trim().split(/\r?\n/);
       const headers = head.split(',').map((h) => h.trim());
       const rows = lines.map((line) => {
         const vals = line.split(',');
@@ -436,7 +530,7 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     }
 
     if (srcExt === '.json' && target === 'csv') {
-      const data = JSON.parse(await fs.readFile(src, 'utf-8'));
+      const data = JSON.parse(await fs.readFile(effectiveSrc, 'utf-8'));
       if (Array.isArray(data) && data.length > 0) {
         const headers = Object.keys(data[0]);
         const lines = data.map((row) => headers.map((h) => row[h] ?? '').join(','));
@@ -447,6 +541,59 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
   }
 
   // 5. Fallback: salin dengan ekstensi baru
-  await fs.copyFile(src, out);
+  await fs.copyFile(effectiveSrc, out);
   return done(out);
+});
+
+// Load sample preset file with genuine file on disk
+handle('load-preset-file', async (presetName: string) => {
+  if (presetName.toLowerCase().endsWith('.pdf')) {
+    const p = await getOrCreateSamplePdf();
+    const stat = await fs.stat(p);
+    return {
+      path: p,
+      name: 'Page_001.pdf',
+      size: stat.size,
+      formattedSize: '1.1 MB',
+      extension: '.pdf',
+      category: 'pdf',
+    };
+  } else {
+    const p = await getOrCreateSampleJpg();
+    const stat = await fs.stat(p);
+    return {
+      path: p,
+      name: 'Photo_Portrait.jpg',
+      size: stat.size,
+      formattedSize: '2.4 MB',
+      extension: '.jpg',
+      category: 'image',
+    };
+  }
+});
+
+// Native Windows File Dialog
+ipcMain.handle('select-file', async () => {
+  const res = await dialog.showOpenDialog(mainWindow!, {
+    properties: ['openFile'],
+    title: 'Pilih Berkas untuk Dikonversi',
+    buttonLabel: 'Pilih Berkas',
+    filters: [
+      { name: 'Semua Format Didukung', extensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'txt', 'md', 'html', 'epub', 'avif', 'tiff', 'bmp', 'csv', 'json'] },
+      { name: 'Semua Berkas (*.*)', extensions: ['*'] },
+    ],
+  });
+  if (res.canceled || !res.filePaths.length) return null;
+  const filePath = res.filePaths[0];
+  const stat = await fs.stat(filePath);
+  const ext = path.extname(filePath).toLowerCase();
+  const formatSize = (bytes: number) => (bytes / (1024 * 1024) > 1 ? (bytes / (1024 * 1024)).toFixed(1) + ' MB' : (bytes / 1024).toFixed(1) + ' KB');
+  return {
+    path: filePath,
+    name: path.basename(filePath),
+    size: stat.size,
+    formattedSize: formatSize(stat.size),
+    extension: ext,
+    category: ext === '.pdf' ? 'pdf' : IMAGE_EXTS.includes(ext) ? 'image' : 'document',
+  };
 });

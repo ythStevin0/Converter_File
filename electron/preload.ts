@@ -25,4 +25,6 @@ contextBridge.exposeInMainWorld('electronAPI', {
   onFileDropTrigger: (callback: (fileInfo: any) => void) => {
     ipcRenderer.on('file-drop-trigger', (_event, value) => callback(value));
   },
+  loadPresetFile: (presetName: string) => ipcRenderer.invoke('load-preset-file', presetName),
+  selectFile: () => ipcRenderer.invoke('select-file'),
 });
