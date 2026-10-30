@@ -142,7 +142,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span className="text-sm font-mono font-bold text-black group-hover:translate-x-1 transition">&rarr;</span>
               </a>
             </div>
-
+                
             {/* Verification Line */}
             <div className="flex flex-wrap items-center gap-4 text-xs text-[#6e8578] pt-1">
               <span>✓ Bebas Iklan &amp; Virus</span>

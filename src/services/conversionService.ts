@@ -4,7 +4,27 @@ import { triggerBrowserDownload } from '../utils/fileHelpers';
 export async function executeFileConversion(request: ConversionRequest): Promise<ConversionResponse> {
   // 1. If running inside Electron desktop app with native backend
   if (window.electronAPI && typeof window.electronAPI.convertFile === 'function') {
-    return await window.electronAPI.convertFile(request);
+    let fileBase64: string | undefined;
+    if (request.file && typeof request.file.arrayBuffer === 'function' && (!request.sourceFilePath || (!request.sourceFilePath.includes('/') && !request.sourceFilePath.includes('\\')))) {
+      try {
+        const buf = await request.file.arrayBuffer();
+        const bytes = new Uint8Array(buf);
+        let binary = '';
+        const chunkSize = 8192;
+        for (let i = 0; i < bytes.byteLength; i += chunkSize) {
+          const chunk = bytes.subarray(i, Math.min(i + chunkSize, bytes.byteLength));
+          binary += String.fromCharCode.apply(null, Array.from(chunk));
+        }
+        fileBase64 = btoa(binary);
+      } catch (e) {
+        console.warn('[ConversionService] Base64 encode skipped:', e);
+      }
+    }
+    return await window.electronAPI.convertFile({
+      ...request,
+      fileBase64,
+      fileName: request.file?.name,
+    } as any);
   }
 
   // 2. Client-side fallback for Browser / Vite Dev Mode

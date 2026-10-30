@@ -202,6 +202,7 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
         <svg
           viewBox="0 0 500 500"
           className="w-full h-full filter drop-shadow-2xl overflow-visible z-10"
+          onMouseLeave={() => setHoveredSlice(null)}
         >
           <AnimatePresence mode="wait">
             <motion.g
@@ -240,13 +241,8 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
                   Z
                 `;
 
-                const isSelected = selectedFormat.toUpperCase() === item.label.toUpperCase();
                 const isHovered = hoveredSlice?.id === item.id;
-                const isActive = isHovered || isSelected;
-
-                const hoverShift = isActive ? 6 : 0;
-                const shiftX = hoverShift * Math.cos(midAngle);
-                const shiftY = hoverShift * Math.sin(midAngle);
+                const isActive = isHovered;
 
                 const midRadius = (innerRadius + outerRadius) / 2;
                 const isTool = item.type === 'action';
@@ -267,10 +263,6 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
                   <g
                     key={item.id}
                     className="cursor-pointer select-none"
-                    style={{
-                      transform: `translate(${shiftX}px, ${shiftY}px)`,
-                      transition: 'transform 0.16s cubic-bezier(0.16, 1, 0.3, 1)',
-                    }}
                     onMouseEnter={() => setHoveredSlice(item)}
                     onMouseLeave={() => setHoveredSlice(null)}
                     onClick={() => {
@@ -393,59 +385,36 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
             <div className="absolute inset-1.5 rounded-full border border-slate-500/50 pointer-events-none" />
 
             <AnimatePresence mode="wait">
-              {hoveredSlice ? (
-                /* 1. Hover/Active Target with Omnitrix Metallic Rivet */
-                <motion.div
-                  key={`hover-${hoveredSlice.id}`}
-                  initial={{ opacity: 0, scale: 0.85 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.85 }}
-                  transition={{ duration: 0.12 }}
-                  className="flex flex-col items-center"
+              {/* Normal Dial State: Instant & In-Sync Format Pill with Metallic Silver Rivet */}
+              <motion.div
+                key="dial-core"
+                initial={{ opacity: 0, scale: 0.92 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.92 }}
+                transition={{ duration: 0.15 }}
+                className="flex flex-col items-center"
+              >
+                <div
+                  className={`px-3.5 py-1.5 rounded-full flex items-center justify-center gap-1.5 shadow-lg border border-white transition-all duration-150 ${
+                    hoveredSlice ? 'scale-105' : 'scale-100'
+                  }`}
+                  style={{
+                    background: 'linear-gradient(to right, #4ade80, #22c55e, #16a34a)',
+                    boxShadow: hoveredSlice
+                      ? '0 0 18px rgba(34, 197, 94, 0.75), inset 0 1px 1px rgba(255, 255, 255, 0.9)'
+                      : '0 0 14px rgba(34, 197, 94, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.9)',
+                  }}
                 >
-                  <div
-                    className="px-3.5 py-1.5 rounded-full flex items-center justify-center gap-1.5 shadow-lg transition-transform bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] border border-white"
-                    style={{
-                      boxShadow: '0 0 16px rgba(34, 197, 94, 0.7), inset 0 1px 1px rgba(255, 255, 255, 0.9)',
-                    }}
-                  >
-                    {/* Metallic Silver Rivet */}
-                    <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40 shrink-0" />
-                    <span className="font-black text-sm sm:text-base tracking-wide uppercase !text-black font-sans leading-none">
-                      {hoveredSlice.label}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-[#86efac] tracking-tight mt-1.5 tabular-nums">
-                    {hoveredSlice.speed}
+                  {/* Metallic Silver Rivet */}
+                  <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40 shrink-0" />
+                  <span className="font-black text-sm tracking-wide uppercase !text-black font-sans leading-none">
+                    {hoveredSlice ? hoveredSlice.label : selectedFormat}
                   </span>
-                </motion.div>
-              ) : (
-                /* 2. Idle State: Format Pill with Omnitrix Metallic Rivet */
-                <motion.div
-                  key="idle"
-                  initial={{ opacity: 0, scale: 0.92 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.92 }}
-                  transition={{ duration: 0.16 }}
-                  className="flex flex-col items-center"
-                >
-                  <div
-                    className="px-3.5 py-1.5 rounded-full flex items-center justify-center gap-1.5 shadow-lg bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] border border-white"
-                    style={{
-                      boxShadow: '0 0 14px rgba(34, 197, 94, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.9)',
-                    }}
-                  >
-                    {/* Metallic Silver Rivet */}
-                    <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40 shrink-0" />
-                    <span className="font-black text-sm tracking-wide uppercase !text-black font-sans leading-none">
-                      {selectedFormat}
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono font-bold text-[#86efac] tracking-tight mt-1.5 tabular-nums">
-                    {inputFileSize}
-                  </span>
-                </motion.div>
-              )}
+                </div>
+                <span className="text-[10px] font-mono font-bold text-[#86efac] tracking-tight mt-1.5 tabular-nums">
+                  {hoveredSlice ? hoveredSlice.speed : inputFileSize}
+                </span>
+              </motion.div>
             </AnimatePresence>
           </div>
         </div>

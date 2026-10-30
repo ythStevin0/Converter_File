@@ -43,8 +43,36 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
     }
   };
 
-  const loadPreset = (name: string, ext: string, sizeBytes: number) => {
-    const mockFile = new File(['mock content'], name, {
+  const handleOpenFilePicker = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (window.electronAPI?.selectFile) {
+      try {
+        const fileInfo = await window.electronAPI.selectFile();
+        if (fileInfo) {
+          onFileLoaded(fileInfo);
+          return;
+        }
+      } catch (err) {
+        console.warn('Native selectFile failed, falling back to html input:', err);
+      }
+    }
+    fileInputRef.current?.click();
+  };
+
+  const loadPreset = async (name: string, ext: string, sizeBytes: number) => {
+    if (window.electronAPI?.loadPresetFile) {
+      try {
+        const res = await window.electronAPI.loadPresetFile(name);
+        if (res && res.path) {
+          onFileLoaded(res);
+          return;
+        }
+      } catch (err) {
+        console.warn('Electron loadPresetFile failed, falling back to mock:', err);
+      }
+    }
+
+    const mockFile = new File(['OrbitDrop sample file content'], name, {
       type: ext === '.pdf' ? 'application/pdf' : 'image/jpeg',
     });
     Object.defineProperty(mockFile, 'size', { value: sizeBytes });
@@ -66,7 +94,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
+        onClick={handleOpenFilePicker}
         className={`w-full p-8 rounded-3xl border transition-all duration-200 flex flex-col items-center justify-center cursor-pointer backdrop-blur-2xl ${
           isDragOver
             ? 'border-[#22c55e] bg-[#22c55e]/15 scale-[1.01] shadow-2xl shadow-[#22c55e]/40'
@@ -82,7 +110,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
         </div>
 
         <h3 className="text-base font-black text-white mb-1 tracking-tight">
-          Seret & Lepas File ke Sini
+          Seret &amp; Lepas File ke Sini
         </h3>
         <p className="text-xs text-slate-300 mb-4 text-center max-w-xs leading-relaxed font-medium">
           Menu melingkar akan langsung melayang di atas desktop mengikuti jenis file Anda.
@@ -90,6 +118,7 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
 
         <button
           type="button"
+          onClick={handleOpenFilePicker}
           className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#4ade80] via-[#22c55e] to-[#16a34a] text-xs font-black !text-black flex items-center gap-2 transition-all shadow-md active:scale-98 cursor-pointer"
         >
           <FolderOpen size={14} className="!text-black" />
