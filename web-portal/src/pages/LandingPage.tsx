@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { FileText, Image as ImageIcon, RotateCcw, Minus, X, Layers, Download } from 'lucide-react';
+import { FileText, Image as ImageIcon, RotateCcw, Minus, X, Layers, Download, FolderOpen } from 'lucide-react';
+import { FileExplorerGuideModal } from '../components/FileExplorerGuideModal';
 import { InteractiveRadialMenu, RadialSliceData } from '../components/InteractiveRadialMenu';
 import { InteractiveDropZone } from '../components/InteractiveDropZone';
 import { VertBatchSimulator } from '../components/VertBatchSimulator';
@@ -57,6 +58,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   };
 
   const [installNotice, setInstallNotice] = useState<string | null>(null);
+  const [isExplorerModalOpen, setIsExplorerModalOpen] = useState(false);
+  const [lastDownloadedFormat, setLastDownloadedFormat] = useState<string | undefined>(undefined);
 
   const triggerDownload = (targetFormat?: string) => {
     const url = downloadUrls[selectedOS];
@@ -67,9 +70,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     link.click();
     document.body.removeChild(link);
 
-    const osLabel = selectedOS === 'win' ? 'Windows (.exe)' : selectedOS === 'mac' ? 'macOS (.dmg)' : 'Source (.zip)';
-    setInstallNotice(`✓ Memulai unduhan OrbitDrop (${osLabel}) untuk konversi ${targetFormat || radialFormat}! Buka berkas untuk install.`);
-    setTimeout(() => setInstallNotice(null), 6000);
+        const osLabel = selectedOS === 'win' ? 'Windows (.exe)' : selectedOS === 'mac' ? 'macOS (.dmg)' : 'Source (.zip)';
+    const target = targetFormat || radialFormat;
+    setLastDownloadedFormat(target);
+    setInstallNotice('✓ File installer masuk ke File Explorer (Downloads). Buka berkas untuk install.');
+    setIsExplorerModalOpen(true);
+    setTimeout(() => setInstallNotice(null), 8000);
+    return;
   };
 
   const radialBaseName = radialInputName.replace(/\.[^/.]+$/, '');
@@ -142,6 +149,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <a
                 href={downloadUrls[selectedOS]}
                 download
+                onClick={() => {
+                  setLastDownloadedFormat(undefined);
+                  setIsExplorerModalOpen(true);
+                }}
                 className="flex-1 bg-[#00e575] hover:bg-[#19ff8c] !text-black font-display font-bold text-sm px-6 py-4 rounded-xl flex items-center justify-between transition shadow-[0_0_25px_rgba(0,229,117,0.25)] group cursor-pointer"
               >
                 <div className="flex items-center gap-3 text-black">
@@ -414,12 +425,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
 
                 {installNotice && (
-                  <div className="p-2.5 rounded-lg bg-[#00e575]/15 border border-[#00e575]/40 text-[#4ade80] text-xs font-medium flex items-center justify-between">
-                    <span>{installNotice}</span>
+                  <div className="p-2.5 rounded-lg bg-[#00e575]/15 border border-[#00e575]/40 text-[#4ade80] text-xs font-medium flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsExplorerModalOpen(true)}
+                      className="flex items-center gap-2 hover:underline text-left cursor-pointer flex-1"
+                    >
+                      <FolderOpen size={15} className="text-[#00e575] shrink-0" />
+                      <span>{installNotice}</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => setInstallNotice(null)}
-                      className="text-[#4ade80] hover:text-white ml-2 text-xs cursor-pointer font-bold"
+                      className="text-[#4ade80] hover:text-white ml-2 text-xs cursor-pointer font-bold shrink-0"
                     >
                       ✕
                     </button>
@@ -700,6 +718,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </div>
 
+
+      {/* File Explorer Installation Guide Modal */}
+      <FileExplorerGuideModal
+        isOpen={isExplorerModalOpen}
+        onClose={() => setIsExplorerModalOpen(false)}
+        fileName={selectedOS === 'win' ? 'OrbitDrop-Setup.exe' : selectedOS === 'mac' ? 'OrbitDrop.dmg' : 'OrbitDrop-Source.zip'}
+        targetFormat={lastDownloadedFormat}
+        onOpenSecurityGuide={onOpenGuide}
+      />
     </div>
   );
 };

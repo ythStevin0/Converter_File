@@ -198,12 +198,69 @@ function createTray() {
   tray.on('click', toggleWindow);
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  globalShortcut.register('Alt+Space', toggleWindow);
-  app.on('activate', showWindowAtCursor);
-});
+// Helper to parse file passed from Windows File Explorer / command line
+async function parseFileArg(rawArg: string): Promise<any> {
+  if (!rawArg || rawArg.startsWith('-') || rawArg === '.' || !fsSync.existsSync(rawArg)) {
+    return null;
+  }
+  try {
+    const stat = await fs.stat(rawArg);
+    if (!stat.isFile()) return null;
+    const ext = path.extname(rawArg).toLowerCase();
+    const formatSize = (bytes: number) => (bytes / (1024 * 1024) > 1 ? (bytes / (1024 * 1024)).toFixed(1) + ' MB' : (bytes / 1024).toFixed(1) + ' KB');
+    return {
+      path: rawArg,
+      name: path.basename(rawArg),
+      size: stat.size,
+      formattedSize: formatSize(stat.size),
+      extension: ext,
+      category: ext === '.pdf' ? 'pdf' : IMAGE_EXTS.includes(ext) ? 'image' : 'document',
+    };
+  } catch {
+    return null;
+  }
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', async (_event, commandLine) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      showWindowAtCursor();
+      mainWindow.focus();
+
+      // Look for file path argument sent from File Explorer context menu
+      const secondArg = commandLine.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith('-') && fsSync.existsSync(arg));
+      if (secondArg) {
+        const fileInfo = await parseFileArg(secondArg);
+        if (fileInfo) {
+          mainWindow.webContents.send('file-drop-trigger', fileInfo);
+        }
+      }
+    }
+  });
+
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
+    globalShortcut.register('Alt+Space', toggleWindow);
+    app.on('activate', showWindowAtCursor);
+
+    // If opened via File Explorer with a file argument on initial startup
+    const initialArg = process.argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith('-') && fsSync.existsSync(arg));
+    if (initialArg) {
+      mainWindow?.webContents.once('did-finish-load', async () => {
+        const fileInfo = await parseFileArg(initialArg);
+        if (fileInfo && mainWindow) {
+          mainWindow.webContents.send('file-drop-trigger', fileInfo);
+        }
+      });
+    }
+  });
+}
 
 app.on('before-quit', () => {
   isQuitting = true;
