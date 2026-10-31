@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Download } from 'lucide-react';
 
 const ALL_FORMATS = [
   '.png', '.jpeg', '.jpg',
@@ -202,6 +203,18 @@ export const VertBatchSimulator: React.FC = () => {
       {/* Status Notice */}
       <div className="text-[11px] text-[#8ca396] pt-1">
         STATUS: {vertStatusNotice}
+      </div>
+
+      <div className="pt-2 border-t border-obsidian-border flex items-center justify-between gap-3">
+        <span className="text-[11px] text-[#6e8578]">Konversi ratusan file lokal tanpa batas ukuran</span>
+        <a
+          href="/OrbitDrop-Setup.exe"
+          download
+          className="px-3 py-1.5 bg-[#00e575] hover:bg-[#19ff8c] !text-black text-xs font-bold rounded-lg transition flex items-center gap-1.5 shadow-sm cursor-pointer shrink-0"
+        >
+          <Download size={13} className="text-black" />
+          <span className="!text-black">Install OrbitDrop Desktop</span>
+        </a>
       </div>
     </div>
   );

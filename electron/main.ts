@@ -81,11 +81,28 @@ const outPath = (src: string, suffix = '', ext = path.extname(src)) => {
   const { dir, name } = path.parse(src);
   let targetDir = dir;
   if (!targetDir || targetDir === '.' || !fsSync.existsSync(targetDir) || targetDir.toLowerCase().includes('temp')) {
-    targetDir = app.getPath('desktop');
+    const desktop = app.getPath('desktop');
+    targetDir = fsSync.existsSync(desktop) ? desktop : app.getPath('downloads');
+  }
+  if (!fsSync.existsSync(targetDir)) {
+    try {
+      fsSync.mkdirSync(targetDir, { recursive: true });
+    } catch {
+      targetDir = app.getPath('downloads');
+    }
   }
   return path.join(targetDir, `${name}${suffix}${ext}`);
 };
-const done = (outputPath: string) => ({ outputPath, outputName: path.basename(outputPath) });
+const done = (outputPath: string) => {
+  try {
+    if (outputPath && fsSync.existsSync(outputPath)) {
+      shell.showItemInFolder(outputPath);
+    }
+  } catch (err) {
+    console.warn('[open-in-folder] failed:', err);
+  }
+  return { outputPath, outputName: path.basename(outputPath) };
+};
 
 // Bungkus handler IPC: otomatis { success: true, ...hasil } atau { success: false, error }
 const handle = (channel: string, fn: (req: any) => Promise<object>) =>
@@ -198,12 +215,69 @@ function createTray() {
   tray.on('click', toggleWindow);
 }
 
-app.whenReady().then(() => {
-  createWindow();
-  createTray();
-  globalShortcut.register('Alt+Space', toggleWindow);
-  app.on('activate', showWindowAtCursor);
-});
+// Helper to parse file passed from Windows File Explorer / command line
+async function parseFileArg(rawArg: string): Promise<any> {
+  if (!rawArg || rawArg.startsWith('-') || rawArg === '.' || !fsSync.existsSync(rawArg)) {
+    return null;
+  }
+  try {
+    const stat = await fs.stat(rawArg);
+    if (!stat.isFile()) return null;
+    const ext = path.extname(rawArg).toLowerCase();
+    const formatSize = (bytes: number) => (bytes / (1024 * 1024) > 1 ? (bytes / (1024 * 1024)).toFixed(1) + ' MB' : (bytes / 1024).toFixed(1) + ' KB');
+    return {
+      path: rawArg,
+      name: path.basename(rawArg),
+      size: stat.size,
+      formattedSize: formatSize(stat.size),
+      extension: ext,
+      category: ext === '.pdf' ? 'pdf' : IMAGE_EXTS.includes(ext) ? 'image' : 'document',
+    };
+  } catch {
+    return null;
+  }
+}
+
+const gotTheLock = app.requestSingleInstanceLock();
+
+if (!gotTheLock) {
+  app.quit();
+} else {
+  app.on('second-instance', async (_event, commandLine) => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      showWindowAtCursor();
+      mainWindow.focus();
+
+      // Look for file path argument sent from File Explorer context menu
+      const secondArg = commandLine.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith('-') && fsSync.existsSync(arg));
+      if (secondArg) {
+        const fileInfo = await parseFileArg(secondArg);
+        if (fileInfo) {
+          mainWindow.webContents.send('file-drop-trigger', fileInfo);
+        }
+      }
+    }
+  });
+
+  app.whenReady().then(() => {
+    createWindow();
+    createTray();
+    globalShortcut.register('Alt+Space', toggleWindow);
+    app.on('activate', showWindowAtCursor);
+
+    // If opened via File Explorer with a file argument on initial startup
+    const initialArg = process.argv.slice(app.isPackaged ? 1 : 2).find((arg) => !arg.startsWith('-') && fsSync.existsSync(arg));
+    if (initialArg) {
+      mainWindow?.webContents.once('did-finish-load', async () => {
+        const fileInfo = await parseFileArg(initialArg);
+        if (fileInfo && mainWindow) {
+          mainWindow.webContents.send('file-drop-trigger', fileInfo);
+        }
+      });
+    }
+  });
+}
 
 app.on('before-quit', () => {
   isQuitting = true;

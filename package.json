@@ -61,7 +61,8 @@
       "allowToChangeInstallationDirectory": true,
       "createDesktopShortcut": true,
       "createStartMenuShortcut": true,
-      "shortcutName": "OrbitDrop"
+      "shortcutName": "OrbitDrop",
+      "include": "assets/installer.nsh"
     }
   },
   "keywords": [
