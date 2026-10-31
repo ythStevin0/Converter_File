@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { RadialSlice } from './RadialSlice';
 import { CenterCircle } from './CenterCircle';
 import { RingToggle } from './RingToggle';
-import { DroppedFileInfo, RadialSliceItem, MenuRingMode } from '../../types';
+import { DroppedFileInfo, RadialSliceItem, MenuRingMode, ConversionResponse } from '../../types';
 import { getFormatSlicesForCategory, getQuickActionSlicesForCategory, QUICK_ACTIONS_SLICES } from '../../utils/formatRouter';
 import { parseDroppedFile } from '../../utils/fileHelpers';
 
@@ -14,6 +14,8 @@ interface RadialMenuProps {
   isConverting: boolean;
   conversionSuccess: boolean;
   conversionError: string | null;
+  lastResult?: ConversionResponse | null;
+  onOpenFolder?: (path: string) => void;
   onClearError?: () => void;
   onClose?: () => void;
   isModalOpen?: boolean;
@@ -26,6 +28,8 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
   isConverting,
   conversionSuccess,
   conversionError,
+  lastResult,
+  onOpenFolder,
   onClearError,
   onClose,
   isModalOpen = false,
@@ -283,6 +287,8 @@ export const RadialMenu: React.FC<RadialMenuProps> = ({
           isConverting={isConverting}
           conversionSuccess={conversionSuccess}
           conversionError={conversionError}
+          lastResult={lastResult}
+          onOpenFolder={onOpenFolder}
           onClearError={onClearError}
           radius={76}
           center={250}

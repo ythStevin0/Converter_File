@@ -81,11 +81,28 @@ const outPath = (src: string, suffix = '', ext = path.extname(src)) => {
   const { dir, name } = path.parse(src);
   let targetDir = dir;
   if (!targetDir || targetDir === '.' || !fsSync.existsSync(targetDir) || targetDir.toLowerCase().includes('temp')) {
-    targetDir = app.getPath('desktop');
+    const desktop = app.getPath('desktop');
+    targetDir = fsSync.existsSync(desktop) ? desktop : app.getPath('downloads');
+  }
+  if (!fsSync.existsSync(targetDir)) {
+    try {
+      fsSync.mkdirSync(targetDir, { recursive: true });
+    } catch {
+      targetDir = app.getPath('downloads');
+    }
   }
   return path.join(targetDir, `${name}${suffix}${ext}`);
 };
-const done = (outputPath: string) => ({ outputPath, outputName: path.basename(outputPath) });
+const done = (outputPath: string) => {
+  try {
+    if (outputPath && fsSync.existsSync(outputPath)) {
+      shell.showItemInFolder(outputPath);
+    }
+  } catch (err) {
+    console.warn('[open-in-folder] failed:', err);
+  }
+  return { outputPath, outputName: path.basename(outputPath) };
+};
 
 // Bungkus handler IPC: otomatis { success: true, ...hasil } atau { success: false, error }
 const handle = (channel: string, fn: (req: any) => Promise<object>) =>

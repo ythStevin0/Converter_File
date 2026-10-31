@@ -2,9 +2,9 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   FileText, Image as ImageIcon, Loader2, 
-  CheckCircle2, AlertCircle, File
+  CheckCircle2, AlertCircle, File, FolderOpen
 } from 'lucide-react';
-import { DroppedFileInfo, RadialSliceItem } from '../../types';
+import { DroppedFileInfo, RadialSliceItem, ConversionResponse } from '../../types';
 
 interface CenterCircleProps {
   fileInfo: DroppedFileInfo | null;
@@ -13,6 +13,8 @@ interface CenterCircleProps {
   isConverting: boolean;
   conversionSuccess: boolean;
   conversionError: string | null;
+  lastResult?: ConversionResponse | null;
+  onOpenFolder?: (path: string) => void;
   onClearError?: () => void;
   radius?: number;
   center?: number;
@@ -25,6 +27,8 @@ export const CenterCircle: React.FC<CenterCircleProps> = ({
   isConverting,
   conversionSuccess,
   conversionError,
+  lastResult,
+  onOpenFolder,
   onClearError,
   radius = 80,
   center = 250,
@@ -94,19 +98,29 @@ export const CenterCircle: React.FC<CenterCircleProps> = ({
               </span>
             </motion.div>
           ) : conversionSuccess ? (
-            /* 2. Success State (Omnitrix Dial Activation) */
+            /* 2. Success State (Omnitrix Dial Activation & Clickable to Open File Explorer) */
             <motion.div
               key="success"
               initial={{ opacity: 0, scale: 0.85 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.85 }}
               transition={{ type: 'spring', stiffness: 450, damping: 25 }}
-              className="flex flex-col items-center text-[#22c55e]"
+              onClick={() => {
+                if (lastResult?.outputPath && onOpenFolder) {
+                  onOpenFolder(lastResult.outputPath);
+                }
+              }}
+              className="flex flex-col items-center text-[#22c55e] cursor-pointer pointer-events-auto group/done"
+              title={`File berhasil dikonversi! Tersimpan di: ${lastResult?.outputPath || 'komputer Anda'}. Klik untuk membuka di File Explorer.`}
             >
-              <CheckCircle2 className="w-8 h-8 text-[#22c55e] mb-0.5" strokeWidth={2.6} />
-              <span className="text-[11px] font-black tracking-wider uppercase text-[#86efac]">
+              <CheckCircle2 className="w-6 h-6 text-[#22c55e] mb-0.5" strokeWidth={2.6} />
+              <span className="text-[10px] font-black tracking-wider uppercase text-[#86efac]">
                 Selesai
               </span>
+              <div className="mt-1 px-2.5 py-0.5 rounded-full bg-emerald-500/20 group-hover/done:bg-emerald-500/35 border border-emerald-500/40 text-[9px] font-bold text-emerald-300 flex items-center gap-1 transition shadow-sm">
+                <FolderOpen size={10} />
+                <span>Buka Folder</span>
+              </div>
             </motion.div>
           ) : conversionError && !hoveredSlice ? (
             /* 3. Error State (Clickable to dismiss) */

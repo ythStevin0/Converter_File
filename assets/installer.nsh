@@ -10,3 +10,4 @@
   DetailPrint "Menghapus integrasi File Explorer Context Menu OrbitDrop..."
   DeleteRegKey HKCU "Software\Classes\*\shell\OrbitDrop"
 !macroend
+
