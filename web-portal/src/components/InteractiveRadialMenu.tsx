@@ -13,6 +13,7 @@ import {
   Lock,
   Layers,
   Zap,
+  Download,
 } from 'lucide-react';
 
 export interface RadialSliceData {
@@ -67,6 +68,7 @@ interface InteractiveRadialMenuProps {
   inputFileName: string;
   inputFileSize: string;
   onFileSelect?: (file: File) => void;
+  onInstall?: (format?: string) => void;
 }
 
 export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
@@ -74,6 +76,7 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
   onSelectSlice,
   inputFileName,
   inputFileSize,
+  onInstall,
 }) => {
   const [ringMode, setRingMode] = useState<'format' | 'action'>('format');
   const [hoveredSlice, setHoveredSlice] = useState<RadialSliceData | null>(null);
@@ -266,7 +269,11 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
                     onMouseEnter={() => setHoveredSlice(item)}
                     onMouseLeave={() => setHoveredSlice(null)}
                     onClick={() => {
-                      onSelectSlice(item);
+                      if (selectedFormat === item.label && onInstall) {
+                        onInstall(item.label);
+                      } else {
+                        onSelectSlice(item);
+                      }
                     }}
                   >
                     <defs>
@@ -354,9 +361,9 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
           </AnimatePresence>
         </svg>
 
-        {/* Central Indicator Circle (Matches Omnitrix Raised Bezel Collar & Metallic Rivet) */}
+        {/* Central Indicator Circle (Matches Omnitrix Raised Bezel Collar & Metallic Rivet - Clickable to Install) */}
         <div
-          className="absolute z-20 flex items-center justify-center pointer-events-none select-none"
+          className="absolute z-20 flex items-center justify-center select-none"
           style={{
             width: `${innerRadius * 2 - 12}px`,
             height: `${innerRadius * 2 - 12}px`,
@@ -364,15 +371,23 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
         >
           {/* Radioactive Ambient Halo Glow */}
           <div
-            className="absolute inset-0 rounded-full blur-md opacity-75"
+            className="absolute inset-0 rounded-full blur-md opacity-75 group-hover:opacity-100 transition-opacity pointer-events-none"
             style={{
               background: 'radial-gradient(circle, rgba(74, 222, 128, 0.55) 0%, rgba(34, 197, 94, 0.2) 50%, transparent 75%)',
             }}
           />
 
-          {/* Main Omnitrix Raised Bezel & Dial Collar */}
+          {/* Main Omnitrix Raised Bezel & Dial Collar (Clickable to Direct Install) */}
           <div
-            className="relative z-10 w-full h-full rounded-full flex flex-col items-center justify-center p-2.5 text-center transition-all duration-200"
+            onClick={() => {
+              if (onInstall) {
+                onInstall(hoveredSlice ? hoveredSlice.label : selectedFormat);
+              }
+            }}
+            role="button"
+            tabIndex={0}
+            title={`Klik untuk langsung unduh & install OrbitDrop untuk konversi ke ${hoveredSlice ? hoveredSlice.label : selectedFormat}`}
+            className="relative z-10 w-full h-full rounded-full flex flex-col items-center justify-center p-2 text-center transition-all duration-200 cursor-pointer active:scale-95 group hover:border-[#4ade80] hover:shadow-[0_0_25px_rgba(34,197,94,0.6)]"
             style={{
               background: 'radial-gradient(circle, #1e293b 0%, #0a0f1d 100%)',
               backdropFilter: 'blur(20px) saturate(180%)',
@@ -382,7 +397,7 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
             }}
           >
             {/* Raised Inner Slit Ring */}
-            <div className="absolute inset-1.5 rounded-full border border-slate-500/50 pointer-events-none" />
+            <div className="absolute inset-1.5 rounded-full border border-slate-500/50 pointer-events-none group-hover:border-[#4ade80]/60 transition-colors" />
 
             <AnimatePresence mode="wait">
               {/* Normal Dial State: Instant & In-Sync Format Pill with Metallic Silver Rivet */}
@@ -392,10 +407,10 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.92 }}
                 transition={{ duration: 0.15 }}
-                className="flex flex-col items-center"
+                className="flex flex-col items-center pointer-events-none"
               >
                 <div
-                  className={`px-3.5 py-1.5 rounded-full flex items-center justify-center gap-1.5 shadow-lg border border-white transition-all duration-150 ${
+                  className={`px-3 py-1 rounded-full flex items-center justify-center gap-1.5 shadow-lg border border-white transition-all duration-150 ${
                     hoveredSlice ? 'scale-105' : 'scale-100'
                   }`}
                   style={{
@@ -406,12 +421,18 @@ export const InteractiveRadialMenu: React.FC<InteractiveRadialMenuProps> = ({
                   }}
                 >
                   {/* Metallic Silver Rivet */}
-                  <div className="w-2.5 h-2.5 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40 shrink-0" />
-                  <span className="font-black text-sm tracking-wide uppercase !text-black font-sans leading-none">
+                  <div className="w-2 h-2 rounded-full bg-gradient-to-tr from-slate-400 via-white to-slate-300 shadow-xs ring-1 ring-black/40 shrink-0" />
+                  <span className="font-black text-xs tracking-wide uppercase !text-black font-sans leading-none">
                     {hoveredSlice ? hoveredSlice.label : selectedFormat}
                   </span>
                 </div>
-                <span className="text-[10px] font-mono font-bold text-[#86efac] tracking-tight mt-1.5 tabular-nums">
+
+                <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-white group-hover:text-[#4ade80] transition-colors">
+                  <Download size={11} className="text-[#4ade80] animate-bounce" />
+                  <span className="tracking-tight uppercase">Install</span>
+                </div>
+
+                <span className="text-[9px] font-mono font-bold text-[#86efac]/80 tracking-tight mt-0.5 tabular-nums">
                   {hoveredSlice ? hoveredSlice.speed : inputFileSize}
                 </span>
               </motion.div>

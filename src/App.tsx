@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { AnimatePresence } from 'framer-motion';
-import { X, Minus, Layers, RotateCcw } from 'lucide-react';
+import { X, Minus, Layers, RotateCcw, FolderOpen, CheckCircle2 } from 'lucide-react';
 import { DroppedFileInfo, RadialSliceItem, ConversionResponse } from './types';
 import { RadialMenu } from './components/RadialMenu/RadialMenu';
 import { DropZone } from './components/DropZone/DropZone';
@@ -162,6 +162,9 @@ export const App: React.FC = () => {
       if (res.success) {
         setConversionSuccess(true);
         setLastResult(res);
+        if (res.outputPath && window.electronAPI?.openInFolder) {
+          window.electronAPI.openInFolder(res.outputPath);
+        }
         setTimeout(() => setConversionSuccess(false), 3500);
       } else {
         setConversionError(res.error || 'Konversi format ini belum didukung');
@@ -178,6 +181,9 @@ export const App: React.FC = () => {
   const handleModalSuccess = (res: ConversionResponse) => {
     setConversionSuccess(true);
     setLastResult(res);
+    if (res.outputPath && window.electronAPI?.openInFolder) {
+      window.electronAPI.openInFolder(res.outputPath);
+    }
     setTimeout(() => setConversionSuccess(false), 4000);
   };
 
@@ -292,6 +298,10 @@ export const App: React.FC = () => {
                 isConverting={isConverting}
                 conversionSuccess={conversionSuccess}
                 conversionError={conversionError}
+                lastResult={lastResult}
+                onOpenFolder={(path) => {
+                  if (window.electronAPI?.openInFolder) window.electronAPI.openInFolder(path);
+                }}
                 onClearError={() => setConversionError(null)}
                 onClose={handleClose}
                 isModalOpen={activeModal !== null}
@@ -303,6 +313,28 @@ export const App: React.FC = () => {
               />
             )}
           </AnimatePresence>
+
+          {/* Floating Quick Action: Open Converted File in File Explorer */}
+          {conversionSuccess && lastResult?.outputPath && (
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-slate-900/95 border border-emerald-500/60 shadow-2xl backdrop-blur-xl flex items-center gap-2.5 animate-in fade-in select-none">
+              <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+              <span className="text-[11px] font-bold text-white truncate max-w-[150px]">
+                {lastResult.outputName}
+              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  if (lastResult.outputPath && window.electronAPI?.openInFolder) {
+                    window.electronAPI.openInFolder(lastResult.outputPath);
+                  }
+                }}
+                className="px-2.5 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 !text-black text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                <FolderOpen size={11} className="text-black" />
+                <span className="!text-black">Buka di File Explorer</span>
+              </button>
+            </div>
+          )}
         </main>
 
         {/* Footer / Status Hint */}

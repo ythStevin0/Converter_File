@@ -15,6 +15,8 @@ export interface RadialSliceItem {
   type: RadialItemType;
   iconName?: string;
   description?: string;
+  speed?: string;
+  outputSize?: string;
 }
 
 export interface DroppedFileInfo {
