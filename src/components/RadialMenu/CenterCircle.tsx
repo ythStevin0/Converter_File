@@ -168,9 +168,9 @@ export const CenterCircle: React.FC<CenterCircleProps> = ({
                 </span>
               </div>
 
-              {/* File Info Tabular Size underneath */}
+              {/* Dynamic Speed when hovered, or File Info Tabular Size when idle (matching web portal) */}
               <span className="text-[10px] font-mono font-bold text-[#86efac] tracking-tight mt-1.5 tabular-nums">
-                {fileInfo?.formattedSize || '1.1 MB'}
+                {hoveredSlice ? (hoveredSlice.speed || '< 0.2 detik') : (fileInfo?.formattedSize || '1.1 MB')}
               </span>
             </motion.div>
           )}
