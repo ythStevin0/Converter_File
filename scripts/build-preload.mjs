@@ -29,7 +29,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.on('file-drop-trigger', (_event, value) => callback(value));
   },
   loadPresetFile: (presetName) => ipcRenderer.invoke('load-preset-file', presetName),
-  selectFile: () => ipcRenderer.invoke('select-file'),
+  selectFile: (targetExt) => ipcRenderer.invoke('select-file', targetExt),
 });
 `;
 
