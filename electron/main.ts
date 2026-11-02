@@ -7,6 +7,8 @@ import { spawn } from 'child_process';
 import ffmpegStatic from 'ffmpeg-static';
 import mammoth from 'mammoth';
 import * as XLSX from 'xlsx';
+import electronUpdater from 'electron-updater';
+const { autoUpdater } = electronUpdater;
 
 import sharp, { type FormatEnum } from 'sharp';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
@@ -51,6 +53,46 @@ function runFfmpeg(args: string[]): Promise<void> {
       reject(err);
     });
   });
+}
+
+function setupAutoUpdater() {
+  if (!app.isPackaged) {
+    return;
+  }
+
+  autoUpdater.autoDownload = true;
+  autoUpdater.autoInstallOnAppQuit = true;
+
+  autoUpdater.on('update-available', (info) => {
+    mainWindow?.webContents.send('update-available', {
+      version: info.version,
+    });
+  });
+
+  autoUpdater.on('update-downloaded', (info) => {
+    dialog.showMessageBox(mainWindow!, {
+      type: 'info',
+      title: 'Pembaruan Tersedia',
+      message: `Versi baru OrbitDrop (${info.version}) telah selesai diunduh.`,
+      detail: 'Aplikasi akan memperbarui secara otomatis saat ditutup, atau Anda dapat memulai ulang sekarang.',
+      buttons: ['Mulai Ulang Sekarang', 'Nanti'],
+      defaultId: 0,
+    }).then((result) => {
+      if (result.response === 0) {
+        autoUpdater.quitAndInstall();
+      }
+    });
+  });
+
+  autoUpdater.on('error', (err) => {
+    console.warn('AutoUpdater warning:', err?.message || err);
+  });
+
+  setTimeout(() => {
+    autoUpdater.checkForUpdatesAndNotify().catch((err) => {
+      console.warn('checkForUpdates failed:', err?.message || err);
+    });
+  }, 6000);
 }
 
 // ---------- Sample Preset Generators ----------
@@ -289,6 +331,7 @@ if (!gotTheLock) {
   app.whenReady().then(() => {
     createWindow();
     createTray();
+    setupAutoUpdater();
     globalShortcut.register('Alt+Space', toggleWindow);
     app.on('activate', showWindowAtCursor);
 
