@@ -3,6 +3,11 @@ import path from 'path';
 import fs from 'fs/promises';
 import fsSync from 'fs';
 import { fileURLToPath } from 'url';
+import { spawn } from 'child_process';
+import ffmpegStatic from 'ffmpeg-static';
+import mammoth from 'mammoth';
+import * as XLSX from 'xlsx';
+
 import sharp, { type FormatEnum } from 'sharp';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { 
@@ -18,14 +23,35 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 // Optimasi rendering & hilangkan lag compositing di Windows
 app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
-const WIN_W = 650;
-const WIN_H = 700;
+const WIN_W = 660;
+const WIN_H = 740;
 const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tiff', '.bmp', '.gif'];
 const IMG_QUALITY: Record<string, object> = { jpeg: { quality: 90 }, webp: { quality: 85 }, avif: { quality: 80 } };
 
 let mainWindow: BrowserWindow | null = null;
 let tray: Tray | null = null; // harus disimpan di variabel agar tidak di-garbage-collect
 let isQuitting = false;
+
+function runFfmpeg(args: string[]): Promise<void> {
+  return new Promise((resolve, reject) => {
+    const bin = (typeof ffmpegStatic === 'string' ? ffmpegStatic : (ffmpegStatic as any)?.default) || 'ffmpeg';
+    const proc = spawn(bin, args, { windowsHide: true });
+    let stderr = '';
+    proc.stderr?.on('data', (d) => {
+      stderr += d.toString();
+    });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        reject(new Error(`FFmpeg error (code ${code}): ${stderr.slice(-300)}`));
+      }
+    });
+    proc.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
 
 // ---------- Sample Preset Generators ----------
 
@@ -153,7 +179,7 @@ function createWindow() {
     frame: false,
     alwaysOnTop: true,
     resizable: false,
-    hasShadow: true,
+    hasShadow: false,
     backgroundColor: '#00000000',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
@@ -531,7 +557,14 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
 
   // 3. Dokumen Teks (TXT / MD / HTML) -> PDF / DOCX / HTML / MD / TXT / JPG / PNG / EPUB
   if (sourceCategory === 'document') {
-    const rawContent = (await fs.readFile(effectiveSrc, 'utf-8')).toString();
+    let rawContent = '';
+    const isDocx = effectiveSrc.toLowerCase().endsWith('.docx');
+    if (isDocx) {
+      const res = await mammoth.extractRawText({ path: effectiveSrc });
+      rawContent = res.value || '';
+    } else {
+      rawContent = (await fs.readFile(effectiveSrc, 'utf-8')).toString();
+    }
     const docTitle = path.basename(effectiveSrc, path.extname(effectiveSrc));
 
     if (target === 'pdf') {
@@ -613,15 +646,200 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
       }
     }
   }
+  // 4. Konversi Video (MP4, GIF, MP3, WEBM, MOV) via FFmpeg
+  if (sourceCategory === 'video') {
+    if (target === 'gif') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-vf', 'fps=10,scale=480:-1:flags=lanczos', out]);
+      return done(out);
+    }
+    if (target === 'mp3') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-vn', '-c:a', 'libmp3lame', '-q:a', '2', out]);
+      return done(out);
+    }
+    if (target === 'webm') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:v', 'libvpx-vp9', '-crf', '30', '-b:v', '0', '-c:a', 'libopus', out]);
+      return done(out);
+    }
+    if (target === 'mov') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:v', 'libx264', '-c:a', 'aac', out]);
+      return done(out);
+    }
+    if (target === 'mp4') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:v', 'libx264', '-preset', 'fast', '-crf', '23', '-c:a', 'aac', '-b:a', '128k', out]);
+      return done(out);
+    }
+    await runFfmpeg(['-y', '-i', effectiveSrc, out]);
+    return done(out);
+  }
 
-  // 5. Fallback: salin dengan ekstensi baru
+  // 5. Konversi Audio (MP3, WAV, FLAC, AAC, OGG) via FFmpeg
+  if (sourceCategory === 'audio') {
+    if (target === 'mp3') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:a', 'libmp3lame', '-b:a', '192k', out]);
+      return done(out);
+    }
+    if (target === 'wav') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:a', 'pcm_s16le', out]);
+      return done(out);
+    }
+    if (target === 'flac') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:a', 'flac', out]);
+      return done(out);
+    }
+    if (target === 'aac' || target === 'm4a') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:a', 'aac', '-b:a', '192k', out]);
+      return done(out);
+    }
+    if (target === 'ogg') {
+      await runFfmpeg(['-y', '-i', effectiveSrc, '-c:a', 'libvorbis', '-q:a', '4', out]);
+      return done(out);
+    }
+    await runFfmpeg(['-y', '-i', effectiveSrc, out]);
+    return done(out);
+  }
+
+  // 6. Konversi Spreadsheet & Data (XLSX, CSV, JSON, HTML, PDF) via SheetJS
+  const isSheetOrData = sourceCategory === 'archive' || 
+    ['.xlsx', '.xls', '.csv', '.tsv', '.json'].includes(path.extname(effectiveSrc).toLowerCase());
+
+  if (isSheetOrData) {
+    const srcExt = path.extname(effectiveSrc).toLowerCase();
+
+    // Input JSON
+    if (srcExt === '.json') {
+      const jsonContent = JSON.parse(await fs.readFile(effectiveSrc, 'utf-8'));
+      if (target === 'xlsx') {
+        const wb = XLSX.utils.book_new();
+        const ws = Array.isArray(jsonContent) ? XLSX.utils.json_to_sheet(jsonContent) : XLSX.utils.json_to_sheet([jsonContent]);
+        XLSX.utils.book_append_sheet(wb, ws, 'Data');
+        XLSX.writeFile(wb, out);
+        return done(out);
+      }
+      if (target === 'csv') {
+        const wb = XLSX.utils.book_new();
+        const ws = Array.isArray(jsonContent) ? XLSX.utils.json_to_sheet(jsonContent) : XLSX.utils.json_to_sheet([jsonContent]);
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        await fs.writeFile(out, csv);
+        return done(out);
+      }
+    }
+
+    // Input CSV / TSV
+    if (srcExt === '.csv' || srcExt === '.tsv') {
+      if (target === 'xlsx') {
+        const csvStr = await fs.readFile(effectiveSrc, 'utf-8');
+        const wb = XLSX.read(csvStr, { type: 'string' });
+        XLSX.writeFile(wb, out);
+        return done(out);
+      }
+      if (target === 'json') {
+        const csvStr = await fs.readFile(effectiveSrc, 'utf-8');
+        const wb = XLSX.read(csvStr, { type: 'string' });
+        const firstSheet = wb.SheetNames[0];
+        const rows = XLSX.utils.sheet_to_json(wb.Sheets[firstSheet]);
+        await fs.writeFile(out, JSON.stringify(rows, null, 2));
+        return done(out);
+      }
+      if (target === 'pdf') {
+        const content = await fs.readFile(effectiveSrc, 'utf-8');
+        const pdfBytes = await buildPdfFromText(content, path.basename(effectiveSrc));
+        await fs.writeFile(out, Buffer.from(pdfBytes));
+        return done(out);
+      }
+    }
+
+    // Input XLSX / XLS
+    if (srcExt === '.xlsx' || srcExt === '.xls') {
+      const wb = XLSX.readFile(effectiveSrc);
+      const firstSheet = wb.SheetNames[0];
+      const ws = wb.Sheets[firstSheet];
+
+      if (target === 'csv') {
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        await fs.writeFile(out, csv);
+        return done(out);
+      }
+      if (target === 'json') {
+        const rows = XLSX.utils.sheet_to_json(ws);
+        await fs.writeFile(out, JSON.stringify(rows, null, 2));
+        return done(out);
+      }
+      if (target === 'html') {
+        const tableHtml = XLSX.utils.sheet_to_html(ws);
+        const htmlDoc = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${path.basename(effectiveSrc)}</title><style>body{font-family:system-ui,sans-serif;padding:24px;}table{border-collapse:collapse;width:100%;}td,th{border:1px solid #cbd5e1;padding:8px 12px;text-align:left;}tr:nth-child(even){background:#f8fafc;}th{background:#f1f5f9;font-weight:bold;}</style></head><body><h2>${path.basename(effectiveSrc)}</h2>${tableHtml}</body></html>`;
+        await fs.writeFile(out, htmlDoc);
+        return done(out);
+      }
+      if (target === 'pdf') {
+        const csv = XLSX.utils.sheet_to_csv(ws);
+        const pdfBytes = await buildPdfFromText(csv, path.basename(effectiveSrc));
+        await fs.writeFile(out, Buffer.from(pdfBytes));
+        return done(out);
+      }
+      if (target === 'xlsx') {
+        await fs.copyFile(effectiveSrc, out);
+        return done(out);
+      }
+    }
+  }
+
+  // 7. Fallback: salin dengan ekstensi baru
   await fs.copyFile(effectiveSrc, out);
   return done(out);
+
 });
+
+async function getOrCreateSampleVideo(): Promise<string> {
+  const samplePath = path.join(app.getPath('temp'), 'Sample_Video.mp4');
+  if (!fsSync.existsSync(samplePath)) {
+    try {
+      await runFfmpeg([
+        '-y',
+        '-f', 'lavfi', '-i', 'testsrc=duration=3:size=640x360:rate=24',
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3',
+        '-c:v', 'libx264', '-preset', 'ultrafast', '-pix_fmt', 'yuv420p',
+        '-c:a', 'aac', '-b:a', '96k',
+        samplePath
+      ]);
+    } catch (err) {
+      console.warn('Failed to generate sample video:', err);
+    }
+  }
+  return samplePath;
+}
+
+async function getOrCreateSampleAudio(): Promise<string> {
+  const samplePath = path.join(app.getPath('temp'), 'Sample_Audio.mp3');
+  if (!fsSync.existsSync(samplePath)) {
+    try {
+      await runFfmpeg([
+        '-y',
+        '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3',
+        '-c:a', 'libmp3lame', '-b:a', '128k',
+        samplePath
+      ]);
+    } catch (err) {
+      console.warn('Failed to generate sample audio:', err);
+    }
+  }
+  return samplePath;
+}
+
+function getFileCategoryFromExt(extension: string): string {
+  const clean = extension.toLowerCase().replace(/^\./, '');
+  if (clean === 'pdf') return 'pdf';
+  if (['jpg', 'jpeg', 'png', 'webp', 'heic', 'tiff', 'tif', 'avif', 'bmp', 'svg', 'gif'].includes(clean)) return 'image';
+  if (['mp4', 'mov', 'mkv', 'avi', 'webm'].includes(clean)) return 'video';
+  if (['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'].includes(clean)) return 'audio';
+  if (['csv', 'xlsx', 'xls', 'json', 'zip', '7z', 'tar', 'gz'].includes(clean)) return 'archive';
+  if (['docx', 'doc', 'txt', 'md', 'html', 'epub', 'rtf'].includes(clean)) return 'document';
+  return 'unknown';
+}
 
 // Load sample preset file with genuine file on disk
 handle('load-preset-file', async (presetName: string) => {
-  if (presetName.toLowerCase().endsWith('.pdf')) {
+  const lower = presetName.toLowerCase();
+  if (lower.endsWith('.pdf')) {
     const p = await getOrCreateSamplePdf();
     const stat = await fs.stat(p);
     return {
@@ -631,6 +849,28 @@ handle('load-preset-file', async (presetName: string) => {
       formattedSize: '1.1 MB',
       extension: '.pdf',
       category: 'pdf',
+    };
+  } else if (lower.endsWith('.mp4')) {
+    const p = await getOrCreateSampleVideo();
+    const stat = await fs.stat(p);
+    return {
+      path: p,
+      name: 'Sample_Video.mp4',
+      size: stat.size,
+      formattedSize: '1.8 MB',
+      extension: '.mp4',
+      category: 'video',
+    };
+  } else if (lower.endsWith('.mp3')) {
+    const p = await getOrCreateSampleAudio();
+    const stat = await fs.stat(p);
+    return {
+      path: p,
+      name: 'Sample_Audio.mp3',
+      size: stat.size,
+      formattedSize: '320 KB',
+      extension: '.mp3',
+      category: 'audio',
     };
   } else {
     const p = await getOrCreateSampleJpg();
@@ -646,16 +886,40 @@ handle('load-preset-file', async (presetName: string) => {
   }
 });
 
-// Native Windows File Dialog
-ipcMain.handle('select-file', async () => {
+// Native Windows File Dialog (All Formats Enabled, optional target format priority)
+ipcMain.handle('select-file', async (_event, targetExt?: string) => {
+  let initialFilters = [
+    { 
+      name: 'Semua Format Didukung (*.mp4, *.mp3, *.pdf, *.docx, *.xlsx, *.jpg...)', 
+      extensions: [
+        'mp4', 'mov', 'webm', 'mkv', 'avi',
+        'mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a',
+        'pdf', 'docx', 'doc', 'txt', 'md', 'html', 'epub',
+        'xlsx', 'xls', 'csv', 'json', 'zip',
+        'jpg', 'jpeg', 'png', 'webp', 'avif', 'tiff', 'bmp', 'gif'
+      ] 
+    },
+    { name: 'Video (*.mp4, *.mov, *.webm, *.mkv, *.avi)', extensions: ['mp4', 'mov', 'webm', 'mkv', 'avi'] },
+    { name: 'Audio (*.mp3, *.wav, *.flac, *.aac, *.ogg, *.m4a)', extensions: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
+    { name: 'Dokumen (*.pdf, *.docx, *.txt, *.md, *.html, *.epub)', extensions: ['pdf', 'docx', 'doc', 'txt', 'md', 'html', 'epub'] },
+    { name: 'Spreadsheet & Data (*.xlsx, *.xls, *.csv, *.json)', extensions: ['xlsx', 'xls', 'csv', 'json'] },
+    { name: 'Gambar (*.jpg, *.png, *.webp, *.avif, *.gif)', extensions: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'tiff', 'bmp', 'gif'] },
+    { name: 'Semua Berkas (*.*)', extensions: ['*'] },
+  ];
+
+  if (targetExt) {
+    const cleanExt = targetExt.toLowerCase().replace(/^\./, '');
+    const matched = initialFilters.find(f => f.extensions.includes(cleanExt) && f.name !== 'Semua Berkas (*.*)');
+    if (matched) {
+      initialFilters = [matched, ...initialFilters.filter(f => f !== matched)];
+    }
+  }
+
   const res = await dialog.showOpenDialog(mainWindow!, {
     properties: ['openFile'],
-    title: 'Pilih Berkas untuk Dikonversi',
+    title: targetExt ? `Pilih Berkas .${targetExt.toUpperCase()}` : 'Pilih Berkas untuk Dikonversi (Semua Format Didukung)',
     buttonLabel: 'Pilih Berkas',
-    filters: [
-      { name: 'Semua Format Didukung', extensions: ['pdf', 'jpg', 'jpeg', 'png', 'webp', 'docx', 'txt', 'md', 'html', 'epub', 'avif', 'tiff', 'bmp', 'csv', 'json'] },
-      { name: 'Semua Berkas (*.*)', extensions: ['*'] },
-    ],
+    filters: initialFilters,
   });
   if (res.canceled || !res.filePaths.length) return null;
   const filePath = res.filePaths[0];
@@ -668,6 +932,6 @@ ipcMain.handle('select-file', async () => {
     size: stat.size,
     formattedSize: formatSize(stat.size),
     extension: ext,
-    category: ext === '.pdf' ? 'pdf' : IMAGE_EXTS.includes(ext) ? 'image' : 'document',
+    category: getFileCategoryFromExt(ext),
   };
 });

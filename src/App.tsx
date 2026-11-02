@@ -16,6 +16,15 @@ import { EncryptModal } from './components/Modals/EncryptModal';
 import { UnlockModal } from './components/Modals/UnlockModal';
 import { calculateSHA256Hash } from './utils/cryptoHelpers';
 
+const DEFAULT_SAMPLE_FILE: DroppedFileInfo = {
+  name: 'Page_001.pdf',
+  path: 'Page_001.pdf',
+  size: 1153433,
+  formattedSize: '1.1 MB',
+  extension: '.pdf',
+  category: 'pdf',
+};
+
 export const App: React.FC = () => {
   const [currentFile, setCurrentFile] = useState<DroppedFileInfo | null>(null);
   const [isTransparentHud, setIsTransparentHud] = useState(false);
@@ -74,6 +83,21 @@ export const App: React.FC = () => {
       });
     }
   }, []);
+
+  
+  // Keyboard listener: Escape to return to DropZone when no modal is open
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !activeModal && currentFile) {
+        setCurrentFile(null);
+        setConversionSuccess(false);
+        setConversionError(null);
+        setLastResult(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeModal, currentFile]);
 
   // Trigger conversion or open modal when user drops/clicks a radial slice
   const handleSelectAction = async (slice: RadialSliceItem, droppedFile?: File) => {
@@ -208,153 +232,96 @@ export const App: React.FC = () => {
   };
 
   return (
-    <div className="relative w-screen h-screen flex items-center justify-center p-2.5 overflow-hidden select-none bg-transparent">
-      {/* Sleek Floating Card or Transparent HUD */}
-      <div 
-        className={`relative w-[620px] h-[670px] rounded-[24px] flex flex-col transition-all duration-300 overflow-hidden ${
-          isTransparentHud
-            ? 'bg-transparent border border-white/5'
-            : 'bg-[#0b0d14]/95 border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)]'
-        }`}
-      >
-        {/* Title Bar & Controls */}
-        <header 
-          className={`h-11 px-4 flex items-center justify-between border-b select-none shrink-0 transition-colors ${
-            isTransparentHud 
-              ? 'bg-black/40 border-white/5 rounded-t-[24px]' 
-              : 'bg-[#0f111a]/90 border-white/5'
-          }`}
-        >
-          {/* Logo & Engine Status (Draggable Window Area) */}
-          <div className="flex items-center gap-2 flex-1 h-full cursor-grab active:cursor-grabbing titlebar-drag-region">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
-            <span className="font-semibold text-xs tracking-wider uppercase text-white/90">OrbitDrop</span>
-            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-              Local Engine
-            </span>
-          </div>
-
-          {/* Window Actions (Strictly Non-Draggable & Clickable) */}
-          <div className="flex items-center gap-1.5 titlebar-no-drag z-30">
-            {currentFile && (
-              <button
-                type="button"
-                onClick={() => setCurrentFile(null)}
-                className="titlebar-no-drag text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-1 border border-white/5 mr-1 cursor-pointer"
-                title="Ganti File / Kembali ke Drop Zone"
-              >
-                <RotateCcw className="w-3 h-3 text-emerald-400" />
-                <span>Ganti File</span>
-              </button>
-            )}
-
-            {/* Mode Toggle: Solid Card vs HUD Transparan */}
-            <button
-              type="button"
-              onClick={() => setIsTransparentHud(!isTransparentHud)}
-              className={`titlebar-no-drag p-1.5 rounded-md border transition-all cursor-pointer ${
-                isTransparentHud 
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400' 
-                  : 'bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10'
-              }`}
-              title={isTransparentHud ? 'Mode Transparan HUD Aktif (Klik untuk Mode Jendela)' : 'Beralih ke Mode Transparan HUD'}
-            >
-              <Layers className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Minimize */}
-            <button
-              type="button"
-              onClick={handleMinimize}
-              className="titlebar-no-drag p-1.5 rounded-md bg-white/5 hover:bg-white/10 border border-white/10 text-white/60 hover:text-white transition-all cursor-pointer active:scale-95"
-              title="Minimize"
-              aria-label="Minimize Window"
-            >
-              <Minus className="w-3.5 h-3.5" />
-            </button>
-
-            {/* Close / Hide to Tray */}
-            <button
-              type="button"
-              onClick={handleClose}
-              className="titlebar-no-drag p-1.5 rounded-md bg-white/5 hover:bg-red-500/20 border border-white/10 hover:border-red-500/30 text-white/60 hover:text-red-400 transition-all cursor-pointer active:scale-95"
-              title="Tutup Jendela (Alt+Space untuk Buka Kembali)"
-              aria-label="Close Window"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          </div>
-        </header>
-
-        {/* Central Workspace Area */}
-        <main className="relative flex-1 flex items-center justify-center p-2 overflow-hidden">
-          <AnimatePresence mode="wait">
-            {currentFile ? (
-              <RadialMenu
-                key="radial-menu"
-                fileInfo={currentFile}
-                onSelectAction={handleSelectAction}
-                onFileLoaded={handleFileLoaded}
-                isConverting={isConverting}
-                conversionSuccess={conversionSuccess}
-                conversionError={conversionError}
-                lastResult={lastResult}
-                onOpenFolder={(path) => {
-                  if (window.electronAPI?.openInFolder) window.electronAPI.openInFolder(path);
-                }}
-                onClearError={() => setConversionError(null)}
-                onClose={handleClose}
-                isModalOpen={activeModal !== null}
-              />
-            ) : (
-              <DropZone 
-                key="dropzone"
-                onFileLoaded={handleFileLoaded} 
-              />
-            )}
-          </AnimatePresence>
-
-          {/* Floating Quick Action: Open Converted File in File Explorer */}
-          {conversionSuccess && lastResult?.outputPath && (
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-slate-900/95 border border-emerald-500/60 shadow-2xl backdrop-blur-xl flex items-center gap-2.5 animate-in fade-in select-none">
-              <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
-              <span className="text-[11px] font-bold text-white truncate max-w-[150px]">
-                {lastResult.outputName}
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  if (lastResult.outputPath && window.electronAPI?.openInFolder) {
-                    window.electronAPI.openInFolder(lastResult.outputPath);
-                  }
-                }}
-                className="px-2.5 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 !text-black text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
-              >
-                <FolderOpen size={11} className="text-black" />
-                <span className="!text-black">Buka di File Explorer</span>
-              </button>
-            </div>
-          )}
-        </main>
-
-        {/* Footer / Status Hint */}
-        <footer 
-          className={`h-7 px-4 flex items-center justify-between border-t text-[11px] select-none shrink-0 transition-colors ${
-            isTransparentHud 
-              ? 'bg-black/40 border-white/5 text-white/40 rounded-b-[24px]' 
-              : 'bg-[#0f111a]/90 border-white/5 text-white/40'
-          }`}
-        >
-          <div className="flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-            <span>100% Offline & Privat • File diproses lokal</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span>Shortcut:</span>
-            <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono text-[10px] border border-white/10">Alt+Space</kbd>
-          </div>
-        </footer>
+    <div className="relative w-screen h-screen flex flex-col items-center justify-center p-2 overflow-hidden select-none bg-transparent">
+      {/* 1. Floating Top Brand matching User Photo */}
+      <div className="flex items-center justify-center gap-2.5 mb-2 select-none titlebar-drag-region cursor-grab active:cursor-grabbing">
+        <span className="w-2.5 h-2.5 rounded-full bg-[#00e575] shadow-[0_0_10px_#00e575] animate-pulse" />
+        <span className="font-extrabold text-sm tracking-wider uppercase text-white font-sans">ORBITDROP</span>
+        <span className="text-[11px] px-2.5 py-0.5 rounded-full bg-emerald-950/30 text-emerald-400 border border-emerald-500/40 font-medium tracking-wide">
+          Local Engine
+        </span>
+        {currentFile && (
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentFile(null);
+              setConversionSuccess(false);
+              setConversionError(null);
+              setLastResult(null);
+            }}
+            className="titlebar-no-drag text-[10px] px-2.5 py-0.5 rounded-full bg-slate-900/90 hover:bg-slate-800 text-white/80 hover:text-white transition-all flex items-center gap-1 border border-white/10 hover:border-[#00e575] cursor-pointer shadow-sm active:scale-95 ml-1"
+            title="Ganti Berkas / Kembali ke Mode Drop Lingkaran (Esc)"
+          >
+            <RotateCcw className="w-3 h-3 text-[#00e575]" />
+            <span>Ganti File</span>
+          </button>
+        )}
       </div>
+
+      {/* 2. Central Workspace (RadialMenu) */}
+      <main className="relative flex flex-col items-center justify-center">
+        <AnimatePresence mode="wait">
+          {currentFile ? (
+            <RadialMenu
+              key="radial-menu"
+              fileInfo={currentFile}
+              onSelectAction={handleSelectAction}
+              onFileLoaded={handleFileLoaded}
+              isConverting={isConverting}
+              conversionSuccess={conversionSuccess}
+              conversionError={conversionError}
+              lastResult={lastResult}
+              onOpenFolder={(path) => {
+                if (window.electronAPI?.openInFolder) window.electronAPI.openInFolder(path);
+              }}
+              onClearError={() => setConversionError(null)}
+              onClose={handleClose}
+              isModalOpen={activeModal !== null}
+            />
+          ) : (
+            <DropZone
+              key="dropzone"
+              onFileLoaded={handleFileLoaded}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Floating Quick Action: Open Converted File in File Explorer */}
+        {conversionSuccess && lastResult?.outputPath && (
+          <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 z-30 px-3.5 py-1.5 rounded-full bg-slate-900/95 border border-emerald-500/60 shadow-2xl backdrop-blur-xl flex items-center gap-2.5 animate-in fade-in select-none">
+            <CheckCircle2 size={14} className="text-emerald-400 shrink-0" />
+            <span className="text-[11px] font-bold text-white truncate max-w-[150px]">
+              {lastResult.outputName}
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                if (lastResult.outputPath && window.electronAPI?.openInFolder) {
+                  window.electronAPI.openInFolder(lastResult.outputPath);
+                }
+              }}
+              className="px-2.5 py-0.5 rounded-md bg-emerald-500 hover:bg-emerald-400 !text-black text-[10px] font-bold transition flex items-center gap-1 cursor-pointer"
+            >
+              <FolderOpen size={11} className="text-black" />
+              <span className="!text-black">Buka di File Explorer</span>
+            </button>
+          </div>
+        )}
+      </main>
+
+      {/* 3. Floating Bottom Status matching exact User Photo */}
+      <footer className="flex items-center justify-center gap-4 mt-3 select-none text-xs">
+        <div className="flex items-center gap-2 text-white/90">
+          <span className="w-2 h-2 rounded-full bg-[#00e575] shadow-[0_0_6px_#00e575]" />
+          <span>100% Offline &amp; Privat</span>
+        </div>
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/10 text-white/70 shadow-md">
+          <span>Shortcut:</span>
+          <kbd className="px-1.5 py-0.5 rounded bg-white/15 text-white font-mono text-[10px] border border-white/20 font-semibold shadow-xs">
+            Alt+Space
+          </kbd>
+        </div>
+      </footer>
 
       {/* Floating Modals */}
       <AnimatePresence>

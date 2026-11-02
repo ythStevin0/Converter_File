@@ -37,7 +37,7 @@ export function getFileCategory(extension: string): FileCategory {
     return 'audio';
   }
   
-  const archiveExts = ['csv', 'xlsx', 'json', 'zip', '7z', 'tar', 'gz'];
+  const archiveExts = ['csv', 'xlsx', 'xls', 'json', 'zip', '7z', 'tar', 'gz'];
   if (archiveExts.includes(ext)) {
     return 'archive';
   }
