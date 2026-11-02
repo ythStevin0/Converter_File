@@ -63,7 +63,14 @@
       "createStartMenuShortcut": true,
       "shortcutName": "OrbitDrop",
       "include": "assets/installer.nsh"
-    }
+    },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "ythStevin0",
+        "repo": "Converter_File"
+      }
+    ]
   },
   "keywords": [
     "file-converter",
@@ -75,6 +82,7 @@
   "author": "ythStevin0",
   "license": "MIT",
   "dependencies": {
+    "electron-updater": "^6.8.11",
     "ffmpeg-static": "^5.3.0",
     "framer-motion": "^12.4.7",
     "lucide-react": "^1.16.0",

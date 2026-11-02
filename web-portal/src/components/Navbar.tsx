@@ -1,24 +1,39 @@
 import React from 'react';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 
 interface NavbarProps {
-  activeTab: 'app' | 'verify' | 'decrypt';
-  setActiveTab: (tab: 'app' | 'verify' | 'decrypt') => void;
   onOpenGuide: () => void;
 }
 
-export const Navbar: React.FC<NavbarProps> = ({
-  activeTab,
-  setActiveTab,
-  onOpenGuide,
-}) => {
+export const Navbar: React.FC<NavbarProps> = ({ onOpenGuide }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const pathname = location.pathname;
+
+  const isVerify = pathname === '/verify';
+  const isDecrypt = pathname === '/decrypt' || pathname === '/unlock';
+  const isApp = !isVerify && !isDecrypt;
+
+  const handleInstallGuideClick = () => {
+    if (isApp) {
+      const el = document.getElementById('panduan-instalasi');
+      el?.scrollIntoView({ behavior: 'smooth' });
+    } else {
+      navigate('/#panduan-instalasi');
+      setTimeout(() => {
+        const el = document.getElementById('panduan-instalasi');
+        el?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  };
+
   return (
     <header className="sticky top-0 z-40 bg-[#040605]/90 backdrop-blur-md border-b border-obsidian-border">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
         
         {/* Brand Identity */}
-        <button
-          type="button"
-          onClick={() => setActiveTab('app')}
+        <Link
+          to="/"
           className="flex items-center gap-3 group shrink-0 text-left cursor-pointer"
         >
           <div className="w-8 h-8 rounded-lg bg-obsidian-800 border border-[#00e575]/50 flex items-center justify-center group-hover:bg-[#00e575] group-hover:text-obsidian-950 text-[#00e575] transition-all">
@@ -38,61 +53,52 @@ export const Navbar: React.FC<NavbarProps> = ({
             </div>
             <p className="text-[11px] text-[#6e8578]">Konverter File Desktop Lokal</p>
           </div>
-        </button>
+        </Link>
 
         {/* Center Mode Switcher */}
         <nav className="flex items-center bg-obsidian-900 border border-obsidian-border rounded-lg p-1">
-          <button
+          <Link
             id="nav-tab-app"
-            type="button"
-            onClick={() => setActiveTab('app')}
+            to="/"
             className={`px-3.5 py-1.5 text-xs rounded-md transition-all cursor-pointer ${
-              activeTab === 'app'
+              isApp
                 ? 'bg-[#00e575] !text-black font-bold shadow-sm'
                 : 'text-[#8ca396] hover:text-white font-medium'
             }`}
           >
             Aplikasi &amp; Unduh
-          </button>
+          </Link>
 
-          <button
+          <Link
             id="nav-tab-verify"
-            type="button"
-            onClick={() => setActiveTab('verify')}
+            to="/verify"
             className={`px-3.5 py-1.5 text-xs rounded-md transition-all cursor-pointer ${
-              activeTab === 'verify'
+              isVerify
                 ? 'bg-[#00e575] !text-black font-bold shadow-sm'
                 : 'text-[#8ca396] hover:text-white font-medium'
             }`}
           >
             Verifikasi Dokumen
-          </button>
+          </Link>
 
-          <button
+          <Link
             id="nav-tab-decrypt"
-            type="button"
-            onClick={() => setActiveTab('decrypt')}
+            to="/decrypt"
             className={`px-3.5 py-1.5 text-xs rounded-md transition-all cursor-pointer ${
-              activeTab === 'decrypt'
+              isDecrypt
                 ? 'bg-[#00e575] !text-black font-bold shadow-sm'
                 : 'text-[#8ca396] hover:text-white font-medium'
             }`}
           >
             Dekripsi .locked
-          </button>
+          </Link>
         </nav>
 
         {/* Right Utility Links */}
         <div className="hidden md:flex items-center gap-3">
           <button
             type="button"
-            onClick={() => {
-              setActiveTab('app');
-              setTimeout(() => {
-                const el = document.getElementById('panduan-instalasi');
-                el?.scrollIntoView({ behavior: 'smooth' });
-              }, 50);
-            }}
+            onClick={handleInstallGuideClick}
             className="text-xs text-[#9cb3a6] hover:text-white px-3 py-1.5 transition cursor-pointer"
           >
             Panduan Instalasi

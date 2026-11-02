@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Navbar } from './components/Navbar';
 import { SecurityGuideModal } from './components/SecurityGuideModal';
 import { LandingPage } from './pages/LandingPage';
@@ -6,29 +7,32 @@ import { VerifyPage } from './pages/VerifyPage';
 import { UnlockPage } from './pages/UnlockPage';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'app' | 'verify' | 'decrypt'>('app');
   const [isGuideOpen, setIsGuideOpen] = useState(false);
+  const navigate = useNavigate();
 
   return (
     <div className="min-h-screen flex flex-col justify-between antialiased selection:bg-[#00e575] selection:text-[#040605]">
       {/* Top Architectural Bar */}
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onOpenGuide={() => setIsGuideOpen(true)}
-      />
+      <Navbar onOpenGuide={() => setIsGuideOpen(true)} />
 
-      {/* Main Workspace */}
+      {/* Main Workspace with Real SPA URL Routes */}
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-8">
-        {activeTab === 'app' && (
-          <LandingPage
-            onOpenGuide={() => setIsGuideOpen(true)}
-            onGoToVerify={() => setActiveTab('verify')}
-            onGoToDecrypt={() => setActiveTab('decrypt')}
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <LandingPage
+                onOpenGuide={() => setIsGuideOpen(true)}
+                onGoToVerify={() => navigate('/verify')}
+                onGoToDecrypt={() => navigate('/decrypt')}
+              />
+            }
           />
-        )}
-        {activeTab === 'verify' && <VerifyPage />}
-        {activeTab === 'decrypt' && <UnlockPage />}
+          <Route path="/verify" element={<VerifyPage />} />
+          <Route path="/decrypt" element={<UnlockPage />} />
+          <Route path="/unlock" element={<UnlockPage />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </main>
 
       {/* Security Guide Modal */}
@@ -49,7 +53,7 @@ export const App: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setActiveTab('app');
+                navigate('/');
                 setTimeout(() => {
                   const el = document.getElementById('panduan-instalasi');
                   el?.scrollIntoView({ behavior: 'smooth' });
