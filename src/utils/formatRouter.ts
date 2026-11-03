@@ -2,6 +2,15 @@ import { FileCategory, RadialSliceItem } from '../types';
 
 export const QUICK_ACTIONS_SLICES: RadialSliceItem[] = [
   {
+    id: 'ipfs',
+    label: 'IPFS CID',
+    type: 'action',
+    iconName: 'Globe',
+    speed: '0.04 detik',
+    outputSize: 'CIDv0',
+    description: 'Hitung Content Identifier (CID) IPFS & Tautan Gateway',
+  },
+  {
     id: 'crop',
     label: 'CROP',
     type: 'action',
@@ -81,12 +90,12 @@ export function getQuickActionSlicesForCategory(category: FileCategory): RadialS
       return QUICK_ACTIONS_SLICES;
     case 'pdf':
     case 'document':
-      return QUICK_ACTIONS_SLICES.filter((s) => ['compress', 'metadata', 'checksum', 'encrypt'].includes(s.id));
+      return QUICK_ACTIONS_SLICES.filter((s) => ['compress', 'metadata', 'checksum', 'ipfs', 'encrypt'].includes(s.id));
     case 'video':
     case 'audio':
     case 'archive':
     default:
-      return QUICK_ACTIONS_SLICES.filter((s) => ['compress', 'metadata', 'checksum', 'encrypt'].includes(s.id));
+      return QUICK_ACTIONS_SLICES.filter((s) => ['compress', 'metadata', 'checksum', 'ipfs', 'encrypt'].includes(s.id));
   }
 }
 
@@ -164,12 +173,18 @@ export function getFormatSlicesForCategory(category: FileCategory, currentExtens
       ];
 
     case 'archive':
+      if (['zip', '7z', 'tar', 'gz'].includes(ext)) {
+        return [
+          { id: 'fmt-extract', label: 'EKSTRAK', type: 'format', iconName: 'Archive', speed: '0.08 detik', outputSize: 'Folder', description: 'Ekstrak seluruh berkas arsip ke folder tujuan' },
+          { id: 'fmt-zip', label: 'ZIP', type: 'format', iconName: 'Archive', speed: '0.12 detik', outputSize: '2.3 MB', description: 'Kemas ulang berkas menjadi arsip ZIP' },
+        ];
+      }
       return [
-        { id: 'fmt-xlsx', label: 'XLSX', type: 'format', iconName: 'Table', speed: '0.09 detik', outputSize: '450 KB' },
-        { id: 'fmt-csv', label: 'CSV', type: 'format', iconName: 'FileSpreadsheet', speed: '0.03 detik', outputSize: '120 KB' },
-        { id: 'fmt-json', label: 'JSON', type: 'format', iconName: 'Code', speed: '0.02 detik', outputSize: '95 KB' },
-        { id: 'fmt-pdf', label: 'PDF', type: 'format', iconName: 'File', speed: '0.10 detik', outputSize: '850 KB' },
-        { id: 'fmt-zip', label: 'ZIP', type: 'format', iconName: 'Archive', speed: '0.12 detik', outputSize: '2.3 MB' },
+        { id: 'fmt-xlsx', label: 'XLSX', type: 'format', iconName: 'Table', speed: '0.09 detik', outputSize: '450 KB', description: 'Konversi ke spreadsheet Excel' },
+        { id: 'fmt-csv', label: 'CSV', type: 'format', iconName: 'FileSpreadsheet', speed: '0.03 detik', outputSize: '120 KB', description: 'Konversi ke data tabular CSV' },
+        { id: 'fmt-json', label: 'JSON', type: 'format', iconName: 'Code', speed: '0.02 detik', outputSize: '95 KB', description: 'Konversi struktur data ke format JSON' },
+        { id: 'fmt-pdf', label: 'PDF', type: 'format', iconName: 'File', speed: '0.10 detik', outputSize: '850 KB', description: 'Ekspor tabel data ke dokumen PDF' },
+        { id: 'fmt-zip', label: 'ZIP', type: 'format', iconName: 'Archive', speed: '0.12 detik', outputSize: '2.3 MB', description: 'Kemas berkas data menjadi arsip ZIP' },
       ];
 
     default:

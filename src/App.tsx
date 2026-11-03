@@ -14,7 +14,7 @@ import { RedactModal } from './components/Modals/RedactModal';
 import { AnnotateModal } from './components/Modals/AnnotateModal';
 import { EncryptModal } from './components/Modals/EncryptModal';
 import { UnlockModal } from './components/Modals/UnlockModal';
-import { calculateSHA256Hash } from './utils/cryptoHelpers';
+import { calculateSHA256Hash, calculateIpfsCid } from './utils/cryptoHelpers';
 
 const DEFAULT_SAMPLE_FILE: DroppedFileInfo = {
   name: 'Page_001.pdf',
@@ -137,6 +137,40 @@ export const App: React.FC = () => {
       setActiveModal('encrypt');
       return;
     }
+    if (slice.id === 'ipfs') {
+      setIsConverting(true);
+      try {
+        let arrayBuffer: ArrayBuffer;
+        if (targetFile.file) {
+          arrayBuffer = await targetFile.file.arrayBuffer();
+        } else if (window.electronAPI && typeof window.electronAPI.readFileBase64 === 'function') {
+          const res = await window.electronAPI.readFileBase64(targetFile.path);
+          if (!res.success || !res.dataUrl) throw new Error('Gagal membaca berkas');
+          const base64 = res.dataUrl.replace(/^data:.*?;base64,/, '');
+          const binaryStr = atob(base64);
+          const bytes = new Uint8Array(binaryStr.length);
+          for (let i = 0; i < binaryStr.length; i++) bytes[i] = binaryStr.charCodeAt(i);
+          arrayBuffer = bytes.buffer;
+        } else {
+          throw new Error('Berkas tidak dapat diakses.');
+        }
+        const { cid, gatewayUrl } = await calculateIpfsCid(arrayBuffer);
+        navigator.clipboard.writeText(cid);
+        setConversionSuccess(true);
+        setLastResult({
+          success: true,
+          outputName: `IPFS CID Disalin! (${cid.slice(0, 9)}...${cid.slice(-6)})`,
+          outputPath: gatewayUrl,
+        });
+        setTimeout(() => setConversionSuccess(false), 5000);
+      } catch (err: any) {
+        setConversionError(err.message || 'Gagal menghitung IPFS CID');
+      } finally {
+        setIsConverting(false);
+      }
+      return;
+    }
+
     if (slice.id === 'checksum' || slice.id === 'stamp') {
       setIsConverting(true);
       try {

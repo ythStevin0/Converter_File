@@ -11,6 +11,7 @@ import electronUpdater from 'electron-updater';
 const { autoUpdater } = electronUpdater;
 
 import sharp, { type FormatEnum } from 'sharp';
+import { ZipArchive } from 'archiver';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { 
   extractTextFromPdfBuffer, 
@@ -27,7 +28,7 @@ app.commandLine.appendSwitch('disable-features', 'CalculateNativeWinOcclusion');
 
 const WIN_W = 660;
 const WIN_H = 740;
-const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tiff', '.bmp', '.gif'];
+const IMAGE_EXTS = ['.jpg', '.jpeg', '.png', '.webp', '.avif', '.tiff', '.bmp', '.gif', '.heic', '.heif', '.svg'];
 const IMG_QUALITY: Record<string, object> = { jpeg: { quality: 90 }, webp: { quality: 85 }, avif: { quality: 80 } };
 
 let mainWindow: BrowserWindow | null = null;
@@ -283,6 +284,74 @@ function createTray() {
   tray.on('click', toggleWindow);
 }
 
+function getFileCategoryFromExt(extension: string): string {
+  const clean = extension.toLowerCase().replace(/^\./, '');
+  if (clean === 'pdf') return 'pdf';
+  if (['jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'tiff', 'tif', 'avif', 'bmp', 'svg', 'gif'].includes(clean)) return 'image';
+  if (['mp4', 'mov', 'mkv', 'avi', 'webm'].includes(clean)) return 'video';
+  if (['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'].includes(clean)) return 'audio';
+  if (['csv', 'xlsx', 'xls', 'json', 'zip', '7z', 'tar', 'gz'].includes(clean)) return 'archive';
+  if (['docx', 'doc', 'txt', 'md', 'html', 'epub', 'rtf'].includes(clean)) return 'document';
+  return 'unknown';
+}
+
+async function createZipArchive(srcPath: string, outZipPath: string): Promise<void> {
+  const zip = new ZipArchive({ zlib: { level: 9 } });
+  const outputStream = fsSync.createWriteStream(outZipPath);
+
+  await new Promise<void>((resolve, reject) => {
+    outputStream.on('close', () => resolve());
+    zip.on('error', (err: any) => reject(err));
+    zip.pipe(outputStream);
+
+    const fileName = path.basename(srcPath);
+    const stat = fsSync.statSync(srcPath);
+    if (stat.isDirectory()) {
+      zip.directory(srcPath, false);
+    } else {
+      zip.file(srcPath, { name: fileName });
+    }
+    zip.finalize().catch(reject);
+  });
+}
+
+async function extractZipArchive(srcZipPath: string, outDirPath: string): Promise<void> {
+  await fs.mkdir(outDirPath, { recursive: true });
+  await new Promise<void>((resolve, reject) => {
+    const proc = spawn('tar', ['-xf', srcZipPath, '-C', outDirPath], { windowsHide: true });
+    let stderr = '';
+    proc.stderr?.on('data', (d) => { stderr += d.toString(); });
+    proc.on('close', (code) => {
+      if (code === 0) {
+        resolve();
+      } else {
+        const ps = spawn('powershell.exe', [
+          '-NoProfile',
+          '-NonInteractive',
+          '-Command',
+          `Expand-Archive -LiteralPath '${srcZipPath.replace(/'/g, "''")}' -DestinationPath '${outDirPath.replace(/'/g, "''")}' -Force`
+        ], { windowsHide: true });
+        ps.on('close', (psCode) => {
+          if (psCode === 0) resolve();
+          else reject(new Error(`Gagal mengekstrak arsip: ${stderr}`));
+        });
+      }
+    });
+    proc.on('error', () => {
+      const ps = spawn('powershell.exe', [
+        '-NoProfile',
+        '-NonInteractive',
+        '-Command',
+        `Expand-Archive -LiteralPath '${srcZipPath.replace(/'/g, "''")}' -DestinationPath '${outDirPath.replace(/'/g, "''")}' -Force`
+      ], { windowsHide: true });
+      ps.on('close', (psCode) => {
+        if (psCode === 0) resolve();
+        else reject(new Error(`Gagal mengekstrak arsip (powershell error ${psCode})`));
+      });
+    });
+  });
+}
+
 // Helper to parse file passed from Windows File Explorer / command line
 async function parseFileArg(rawArg: string): Promise<any> {
   if (!rawArg || rawArg.startsWith('-') || rawArg === '.' || !fsSync.existsSync(rawArg)) {
@@ -299,7 +368,7 @@ async function parseFileArg(rawArg: string): Promise<any> {
       size: stat.size,
       formattedSize: formatSize(stat.size),
       extension: ext,
-      category: ext === '.pdf' ? 'pdf' : IMAGE_EXTS.includes(ext) ? 'image' : 'document',
+      category: getFileCategoryFromExt(ext),
     };
   } catch {
     return null;
@@ -500,18 +569,33 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
     }
   }
 
-  const out = outPath(effectiveSrc, '', `.${target}`);
+    const out = outPath(effectiveSrc, '', `.${target}`);
+
+  // 0. Arsip ZIP (Pack & Extract)
+  if (target === 'zip') {
+    await createZipArchive(effectiveSrc, out);
+    return done(out);
+  }
+
+  if (target === 'ekstrak' || target === 'extract' || target === 'unzip') {
+    const outDir = path.join(path.dirname(effectiveSrc), `${path.basename(effectiveSrc, path.extname(effectiveSrc))}_extracted`);
+    await extractZipArchive(effectiveSrc, outDir);
+    return done(outDir);
+  }
 
   // 1. Gambar
   if (sourceCategory === 'image') {
-    const img = sharp(effectiveSrc);
+    const srcExt = path.extname(effectiveSrc).toLowerCase();
+    const sharpOpts = srcExt === '.svg' ? { density: 300 } : undefined;
+    const img = sharp(effectiveSrc, sharpOpts);
 
     if (target === 'bmp') {
       const { data, info } = await img.removeAlpha().toColourspace('srgb').raw().toBuffer({ resolveWithObject: true });
       await fs.writeFile(out, encodeBmp(info.width, info.height, data));
     } else if (target === 'pdf') {
       const pdf = await PDFDocument.create();
-      const png = await pdf.embedPng(await img.png().toBuffer());
+      const pngBuf = await img.png().toBuffer();
+      const png = await pdf.embedPng(pngBuf);
       pdf.addPage([png.width, png.height]).drawImage(png);
       await fs.writeFile(out, await pdf.save());
     } else if (target === 'docx') {
@@ -521,7 +605,15 @@ handle('convert-file', async ({ sourceFilePath: src, targetFormatOrAction, sourc
       await fs.writeFile(out, docxBuf);
     } else {
       const fmt = ({ jpg: 'jpeg', tif: 'tiff' } as Record<string, string>)[target] ?? target;
-      await img.toFormat(fmt as keyof FormatEnum, IMG_QUALITY[fmt]).toFile(out);
+      try {
+        await img.toFormat(fmt as keyof FormatEnum, IMG_QUALITY[fmt]).toFile(out);
+      } catch (sharpErr) {
+        if (srcExt === '.heic' || srcExt === '.heif') {
+          await runFfmpeg(['-y', '-i', effectiveSrc, out]);
+        } else {
+          throw sharpErr;
+        }
+      }
     }
     return done(out);
   }
@@ -868,17 +960,6 @@ async function getOrCreateSampleAudio(): Promise<string> {
   return samplePath;
 }
 
-function getFileCategoryFromExt(extension: string): string {
-  const clean = extension.toLowerCase().replace(/^\./, '');
-  if (clean === 'pdf') return 'pdf';
-  if (['jpg', 'jpeg', 'png', 'webp', 'heic', 'tiff', 'tif', 'avif', 'bmp', 'svg', 'gif'].includes(clean)) return 'image';
-  if (['mp4', 'mov', 'mkv', 'avi', 'webm'].includes(clean)) return 'video';
-  if (['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'].includes(clean)) return 'audio';
-  if (['csv', 'xlsx', 'xls', 'json', 'zip', '7z', 'tar', 'gz'].includes(clean)) return 'archive';
-  if (['docx', 'doc', 'txt', 'md', 'html', 'epub', 'rtf'].includes(clean)) return 'document';
-  return 'unknown';
-}
-
 // Load sample preset file with genuine file on disk
 handle('load-preset-file', async (presetName: string) => {
   const lower = presetName.toLowerCase();
@@ -946,7 +1027,8 @@ ipcMain.handle('select-file', async (_event, targetExt?: string) => {
     { name: 'Audio (*.mp3, *.wav, *.flac, *.aac, *.ogg, *.m4a)', extensions: ['mp3', 'wav', 'flac', 'aac', 'ogg', 'm4a'] },
     { name: 'Dokumen (*.pdf, *.docx, *.txt, *.md, *.html, *.epub)', extensions: ['pdf', 'docx', 'doc', 'txt', 'md', 'html', 'epub'] },
     { name: 'Spreadsheet & Data (*.xlsx, *.xls, *.csv, *.json)', extensions: ['xlsx', 'xls', 'csv', 'json'] },
-    { name: 'Gambar (*.jpg, *.png, *.webp, *.avif, *.gif)', extensions: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'tiff', 'bmp', 'gif'] },
+    { name: 'Gambar (*.jpg, *.png, *.webp, *.avif, *.heic, *.svg, *.gif)', extensions: ['jpg', 'jpeg', 'png', 'webp', 'avif', 'tiff', 'bmp', 'gif', 'heic', 'heif', 'svg'] },
+    { name: 'Arsip (*.zip, *.7z, *.tar, *.gz)', extensions: ['zip', '7z', 'tar', 'gz'] },
     { name: 'Semua Berkas (*.*)', extensions: ['*'] },
   ];
 

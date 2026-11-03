@@ -28,7 +28,6 @@ export async function executeFileConversion(request: ConversionRequest): Promise
   }
 
   // 2. Client-side fallback for Browser / Vite Dev Mode
-  console.log('[ConversionService] Running in Web Mode, processing via browser engine:', request);
 
   const { targetFormatOrAction, file, sourceFilePath } = request;
   const fileName = file ? file.name : sourceFilePath.split(/[\\/]/).pop() || 'file';
