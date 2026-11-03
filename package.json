@@ -12,11 +12,13 @@
     "build:electron": "tsc -p electron/tsconfig.json && node scripts/build-preload.mjs",
     "build:portal": "npm --prefix web-portal run build",
     "test:crypto": "node tests/crypto-compatibility.test.mjs",
-    "test": "npm run test:crypto",
+    "test": "node tests/crypto-compatibility.test.mjs && node tests/conversion-engines.test.mjs && node tests/unit-helpers.test.mjs",
     "dist": "npm run build && npm run build:electron && electron-builder",
     "dist:win": "npm run build && npm run build:electron && electron-builder --win",
     "dist:mac": "npm run build && npm run build:electron && electron-builder --mac",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:engines": "node tests/conversion-engines.test.mjs",
+    "test:helpers": "node tests/unit-helpers.test.mjs"
   },
   "build": {
     "appId": "com.orbitdrop.app",
@@ -82,6 +84,7 @@
   "author": "ythStevin0",
   "license": "MIT",
   "dependencies": {
+    "archiver": "^8.0.0",
     "electron-updater": "^6.8.11",
     "ffmpeg-static": "^5.3.0",
     "framer-motion": "^12.4.7",
@@ -94,6 +97,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@types/archiver": "^8.0.0",
     "@types/node": "^22.13.1",
     "@types/react": "^18.3.18",
     "@types/react-dom": "^18.3.5",

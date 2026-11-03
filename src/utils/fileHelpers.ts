@@ -10,38 +10,43 @@ export function formatFileSize(bytes: number): string {
   return `${val} ${sizes[i]}`;
 }
 
+const IMAGE_EXTENSIONS = new Set([
+  'jpg', 'jpeg', 'png', 'webp', 'heic', 'heif', 'tiff', 'tif', 'avif', 'bmp', 'svg', 'gif',
+]);
+const DOC_EXTENSIONS = new Set([
+  'docx', 'doc', 'txt', 'md', 'html', 'epub', 'rtf',
+]);
+const VIDEO_EXTENSIONS = new Set([
+  'mp4', 'mov', 'mkv', 'avi', 'webm',
+]);
+const AUDIO_EXTENSIONS = new Set([
+  'mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac',
+]);
+const ARCHIVE_EXTENSIONS = new Set([
+  'csv', 'xlsx', 'xls', 'json', 'zip', '7z', 'tar', 'gz',
+]);
+
 export function getFileCategory(extension: string): FileCategory {
   const ext = extension.toLowerCase().replace(/^\./, '');
-  
+
   if (ext === 'pdf') {
     return 'pdf';
   }
-  
-  const imageExts = ['jpg', 'jpeg', 'png', 'webp', 'heic', 'tiff', 'tif', 'avif', 'bmp', 'svg', 'gif'];
-  if (imageExts.includes(ext)) {
+  if (IMAGE_EXTENSIONS.has(ext)) {
     return 'image';
   }
-  
-  const docExts = ['docx', 'doc', 'txt', 'md', 'html', 'epub', 'rtf'];
-  if (docExts.includes(ext)) {
+  if (DOC_EXTENSIONS.has(ext)) {
     return 'document';
   }
-  
-  const videoExts = ['mp4', 'mov', 'mkv', 'avi', 'webm'];
-  if (videoExts.includes(ext)) {
+  if (VIDEO_EXTENSIONS.has(ext)) {
     return 'video';
   }
-  
-  const audioExts = ['mp3', 'wav', 'flac', 'm4a', 'ogg', 'aac'];
-  if (audioExts.includes(ext)) {
+  if (AUDIO_EXTENSIONS.has(ext)) {
     return 'audio';
   }
-  
-  const archiveExts = ['csv', 'xlsx', 'xls', 'json', 'zip', '7z', 'tar', 'gz'];
-  if (archiveExts.includes(ext)) {
+  if (ARCHIVE_EXTENSIONS.has(ext)) {
     return 'archive';
   }
-  
   return 'unknown';
 }
 

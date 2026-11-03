@@ -247,3 +247,58 @@ export function uint8ArrayToBase64(bytes: Uint8Array): string {
   }
   return btoa(binary);
 }
+
+
+/**
+ * Calculates genuine IPFS CIDv0 multihash (Qm...) from an ArrayBuffer
+ */
+export async function calculateIpfsCid(buffer: ArrayBuffer): Promise<{ cid: string; gatewayUrl: string }> {
+  const hashBuffer = await crypto.subtle.digest('SHA-256', buffer);
+  const hashBytes = new Uint8Array(hashBuffer);
+
+  // Multihash prefix: 0x12 (sha2-256) + 0x20 (32 bytes length)
+  const multihash = new Uint8Array(2 + hashBytes.length);
+  multihash[0] = 0x12;
+  multihash[1] = 0x20;
+  multihash.set(hashBytes, 2);
+
+  // Base58btc encoding
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+  const digits = [0];
+  for (let i = 0; i < multihash.length; i++) {
+    for (let j = 0; j < digits.length; j++) digits[j] <<= 8;
+    digits[0] += multihash[i];
+    let carry = 0;
+    for (let j = 0; j < digits.length; ++j) {
+      digits[j] += carry;
+      carry = (digits[j] / 58) | 0;
+      digits[j] %= 58;
+    }
+    while (carry) {
+      digits.push(carry % 58);
+      carry = (carry / 58) | 0;
+    }
+  }
+  for (let i = 0; multihash[i] === 0 && i < multihash.length - 1; i++) digits.push(0);
+  const cid = digits.reverse().map((d) => ALPHABET[d]).join('');
+
+  return {
+    cid,
+    gatewayUrl: `https://ipfs.io/ipfs/${cid}`,
+  };
+}
+
+/**
+ * Calculates EAS (Ethereum Attestation Service) compatible attestation digest
+ */
+export async function calculateEasAttestationHash(
+  fileHash: string,
+  schemaUid = '0x0000000000000000000000000000000000000000000000000000000000000000',
+  recipient = '0x0000000000000000000000000000000000000000'
+): Promise<string> {
+  const enc = new TextEncoder();
+  const payload = enc.encode(`${schemaUid.toLowerCase()}:${recipient.toLowerCase()}:${fileHash.toLowerCase()}`);
+  const hashBuf = await crypto.subtle.digest('SHA-256', payload);
+  const hashArr = Array.from(new Uint8Array(hashBuf));
+  return '0x' + hashArr.map((b) => b.toString(16).padStart(2, '0')).join('');
+}

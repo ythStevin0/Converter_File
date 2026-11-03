@@ -151,7 +151,7 @@ Satu aplikasi web terpadu yang di-hosting di **Vercel** dengan tiga rute utama:
 |**Frontend UI & Animasi**|**React + TypeScript + Tailwind CSS + Framer Motion**|Memudahkan pembuatan geometri SVG _Radial Menu_ dan transisi modal `Crop Image` serta `Add BG` yang mulus.|
 |**Visual Canvas Processing**|**HTML5 Canvas API + `react-easy-crop`**|Memproses fitur `CROP` dan `ADD BG` (`Padding`, `Corners`, `Shadow`) secara _real-time_ di sisi klien.|
 |**Local Conversion Engine**|**Sharp (libvips), MuPDF/PDFium, Pandoc, FFmpeg**|Semua berlisensi _open-source_ (Rp 0), super cepat, dan berjalan tanpa koneksi internet.|
-|**Web3 Libraries**|**`viem`, `eas-sdk`, `@lit-protocol/lit-node-client`, `pinata-web3`**|Pustaka standar industri yang ringan dan tidak membebani biaya server kepada pembuat aplikasi.|
+|**Web3 Cryptographic Engine**|**Web Crypto API (SubtleCrypto) + IPFS Multihash CIDv0 + EAS Schema Attestation**|100% offline & lokal di CPU pengguna: perhitungan IPFS CIDv0 (`Qm...`), stempel EAS attestation hash, dan enkripsi zero-knowledge tanpa dependensi server pihak ketiga.|
 |**Web Portal & CI/CD**|**Next.js (Vercel) + GitHub Actions & GitHub Releases**|Mengotomatiskan pembuatan file `.exe` dan `.dmg` di _cloud_ serta menyediakan _hosting_ dan _bandwidth_ unduhan gratis.|
 
 ## 6. Target Performa & Keamanan (Non-Functional Requirements)
@@ -162,7 +162,7 @@ Satu aplikasi web terpadu yang di-hosting di **Vercel** dengan tiga rute utama:
     
 3. **Konsumsi Memori (RAM):** Saat aplikasi berada dalam mode siaga (_background tray_), penggunaan RAM tidak boleh melebihi **50 MB** (dengan Tauri) atau **150 MB** (dengan Electron).
     
-4. **Privasi Data:** Tidak ada satu pun file yang dikirim keluar dari laptop pengguna saat menggunakan fitur konversi dan pengeditan visual (`CROP`, `ADD BG`, `COMPRESS`, `REDACT`). Koneksi internet hanya digunakan jika pengguna secara eksplisit memilih menu `IPFS DROP` atau `STAMP`.
+4. **Privasi Data:** Tidak ada satu pun file yang dikirim keluar dari laptop pengguna saat menggunakan fitur konversi dan pengeditan visual (`CROP`, `ADD BG`, `COMPRESS`, `REDACT`, `CHECKSUM`, `IPFS CID`, `ENCRYPT`). Seluruh pemrosesan berjalan 100% offline di memori lokal.
     
 
 ## 7. Peta Jalan Pengembangan (Roadmap & Milestones)
@@ -173,7 +173,7 @@ Satu aplikasi web terpadu yang di-hosting di **Vercel** dengan tiga rute utama:
     
 - Pembuatan komponen **Radial Menu** interaktif beserta indikator ukuran file di lingkaran tengah.
     
-- Integrasi mesin konversi lokal untuk Gambar (`JPG`, `PNG`, `WEBP`, `AVIF`, `TIFF`, `BMP`, `HEIC`) dan Dokumen (`PDF`, `DOCX`, `TXT`).
+- Integrasi mesin konversi lokal untuk Gambar (`JPG`, `PNG`, `WEBP`, `AVIF`, `TIFF`, `BMP`, `HEIC`, `HEIF`, `SVG`) dan Dokumen (`PDF`, `DOCX`, `TXT`, `XLSX`, `CSV`, `ZIP`).
     
 
 ### Fase 2: Quick Action Editors & Web3 Integration (Minggu 3–4)
@@ -184,7 +184,7 @@ Satu aplikasi web terpadu yang di-hosting di **Vercel** dengan tiga rute utama:
     
 - Penambahan fitur `COMPRESS`, `METADATA`, dan `REDACT`.
     
-- Integrasi ketiga modul Web3: `IPFS DROP`, `VERIFY / STAMP` (SHA-256 + EAS), dan `ENCRYPT / UNLOCK`.
+- Integrasi ketiga modul Web3: `IPFS CID` (CIDv0 Multihash), `VERIFY / STAMP` (SHA-256 + EAS Attestation Hash), dan `ENCRYPT / UNLOCK` (AES-256-GCM + PBKDF2 ORBT v1).
     
 
 ### Fase 3: Web Portal, Auto-Build & Rilis Publik (Minggu 5)
