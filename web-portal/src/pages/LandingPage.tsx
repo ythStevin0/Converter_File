@@ -1,9 +1,7 @@
 import React, { useState } from 'react';
 import { FileText, Image as ImageIcon, RotateCcw, Minus, X, Layers, Download, FolderOpen } from 'lucide-react';
 import { FileExplorerGuideModal } from '../components/FileExplorerGuideModal';
-import { InteractiveRadialMenu, RadialSliceData } from '../components/InteractiveRadialMenu';
-import { InteractiveDropZone } from '../components/InteractiveDropZone';
-import { VertBatchSimulator } from '../components/VertBatchSimulator';
+import { InteractiveTutorialShowcase } from '../components/InteractiveTutorialShowcase';
 
 interface LandingPageProps {
   onOpenGuide: () => void;
@@ -71,7 +69,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     document.body.removeChild(link);
 
         const osLabel = selectedOS === 'win' ? 'Windows (.exe)' : selectedOS === 'mac' ? 'macOS (.dmg)' : 'Source (.zip)';
-    const target = targetFormat || radialFormat;
+    const target = targetFormat || 'DOCX';
     setLastDownloadedFormat(target);
     setInstallNotice('✓ File installer masuk ke File Explorer (Downloads). Buka berkas untuk install.');
     setIsExplorerModalOpen(true);
@@ -79,7 +77,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     return;
   };
 
-  const radialBaseName = radialInputName.replace(/\.[^/.]+$/, '');
 
   return (
     <div className="space-y-20 py-4">
@@ -102,7 +99,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </h1>
 
           <p className="text-base text-[#9cb3a6] leading-relaxed max-w-xl">
-            Tidak perlu membuka browser atau mengunggah dokumen penting ke internet. Cukup <strong className="text-white">seret &amp; lepas file ke menu radial</strong> di kursor Anda. Selesai dalam <span className="text-[#00e575] font-semibold">&lt; 0.2 detik</span> langsung di CPU komputer Anda.
+            Tidak perlu membuka browser atau mengunggah dokumen penting ke internet. Cukup <strong className="text-white">tekan berkas sambil diarahkan dengan menahan tombol CTRL</strong> (atau shortcut <span className="text-white font-medium">Alt+Space</span>). Selesai dalam <span className="text-[#00e575] font-semibold">&lt; 0.2 detik</span> langsung di CPU komputer Anda.
           </p>
 
           {/* Download & OS Switcher Block */}
@@ -201,260 +198,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </div>
         </div>
 
-        {/* Right Column: Interactive Dual Preview (Radial vs Batch) */}
-        <div className="lg:col-span-6 bg-obsidian-900 border border-obsidian-border rounded-2xl overflow-hidden shadow-2xl">
-          
-          {/* Preview Header & Mode Switcher */}
-          <div className="px-5 py-4 border-b border-obsidian-border flex items-center justify-between bg-obsidian-950/60">
-            <div>
-              <span className="text-xs font-semibold text-white">Simulasi Interaktif</span>
-              <p className="text-[11px] text-[#6e8578]">Klik atau drop file untuk menguji responsivitas</p>
-            </div>
-
-            <div className="flex items-center gap-1 bg-obsidian-900 border border-obsidian-border p-1 rounded-lg text-xs">
-              <button
-                type="button"
-                onClick={() => setWorkbenchMode('radial')}
-                className={`px-3 py-1 rounded-md transition font-bold cursor-pointer ${
-                  workbenchMode === 'radial'
-                    ? 'bg-[#00e575] !text-black shadow-sm'
-                    : 'text-[#8ca396] hover:text-white font-medium'
-                }`}
-              >
-                Menu Radial
-              </button>
-              <button
-                type="button"
-                onClick={() => setWorkbenchMode('vert')}
-                className={`px-3 py-1 rounded-md transition font-bold cursor-pointer ${
-                  workbenchMode === 'vert'
-                    ? 'bg-[#00e575] !text-black shadow-sm'
-                    : 'text-[#8ca396] hover:text-white font-medium'
-                }`}
-              >
-                Batch Converter
-              </button>
-            </div>
-          </div>
-
-          {/* PREVIEW A: RADIAL CURSOR SIMULATOR (MATCHING ELECTRON DEV) */}
-          {workbenchMode === 'radial' && (
-            <div className="p-4 sm:p-6 space-y-5">
-              {/* Quick Presets matching npm run dev:electron DropZone */}
-              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] uppercase font-mono font-bold tracking-wider text-[#94a3b8]">
-                    Uji Coba Berkas:
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRadialInputName('Page_001.pdf');
-                      setRadialInputSize('1.1 MB');
-                      setRadialFormat('DOCX');
-                      setRadialOutputSize('1.2 MB');
-                      setRadialSpeed('0.14 detik');
-                      setRadialFileActive(true);
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      radialFileActive && radialInputName.endsWith('.pdf')
-                        ? 'bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e] shadow-sm'
-                        : 'bg-slate-900 text-[#94a3b8] hover:text-white border border-[#94a3b8]/40'
-                    }`}
-                  >
-                    <FileText size={12} className="text-[#22c55e]" />
-                    <span>Page_001.pdf</span>
-                    <span className="text-[10px] text-slate-400">1.1 MB</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setRadialInputName('Photo_Portrait.jpg');
-                      setRadialInputSize('2.4 MB');
-                      setRadialFormat('WEBP');
-                      setRadialOutputSize('380 KB');
-                      setRadialSpeed('0.07 detik');
-                      setRadialFileActive(true);
-                    }}
-                    className={`px-3 py-1 rounded-full text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
-                      radialFileActive && radialInputName.endsWith('.jpg')
-                        ? 'bg-[#22c55e]/15 text-[#4ade80] border border-[#22c55e] shadow-sm'
-                        : 'bg-slate-900 text-[#94a3b8] hover:text-white border border-[#94a3b8]/40'
-                    }`}
-                  >
-                    <ImageIcon size={12} className="text-[#22c55e]" />
-                    <span>Photo_Portrait.jpg</span>
-                    <span className="text-[10px] text-slate-400">2.4 MB</span>
-                  </button>
-                </div>
-              </div>
-
-              {/* Authentic OrbitDrop Desktop Window Frame matching npm run dev:electron */}
-              <div className="relative w-full rounded-[24px] bg-[#0b0d14]/95 border border-white/10 shadow-[0_25px_60px_rgba(0,0,0,0.85)] flex flex-col overflow-hidden">
-                {/* Title Bar & Controls matching Electron */}
-                <header className="h-11 px-4 flex items-center justify-between border-b border-white/5 bg-[#0f111a]/90 select-none">
-                  {/* Logo & Engine Status */}
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_#10b981] animate-pulse" />
-                    <span className="font-semibold text-xs tracking-wider uppercase text-white/90">OrbitDrop</span>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-medium">
-                      Local Engine
-                    </span>
-                  </div>
-
-                  {/* Window Controls */}
-                  <div className="flex items-center gap-1.5">
-                    {radialFileActive ? (
-                      <button
-                        type="button"
-                        onClick={() => setRadialFileActive(false)}
-                        className="text-[11px] px-2 py-1 rounded-md bg-white/5 hover:bg-white/10 text-white/70 hover:text-white transition-all flex items-center gap-1 border border-white/5 mr-1 cursor-pointer"
-                        title="Ganti File / Buka Drop Zone"
-                      >
-                        <RotateCcw className="w-3 h-3 text-emerald-400" />
-                        <span>Ganti File</span>
-                      </button>
-                    ) : (
-                      <button
-                        type="button"
-                        onClick={() => setRadialFileActive(true)}
-                        className="text-[11px] px-2 py-1 rounded-md bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-400 transition-all flex items-center gap-1 border border-emerald-500/30 mr-1 cursor-pointer font-medium"
-                        title="Buka Radial Menu"
-                      >
-                        <span>Buka Dial</span>
-                      </button>
-                    )}
-
-                    <div className="p-1.5 rounded-md bg-white/5 border border-white/10 text-white/60">
-                      <Layers className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="p-1.5 rounded-md bg-white/5 border border-white/10 text-white/60">
-                      <Minus className="w-3.5 h-3.5" />
-                    </div>
-                    <div className="p-1.5 rounded-md bg-white/5 border border-white/10 text-white/60">
-                      <X className="w-3.5 h-3.5" />
-                    </div>
-                  </div>
-                </header>
-
-                {/* Central Workspace: Radial Menu or DropZone */}
-                <main className="relative flex-1 flex items-center justify-center p-2 min-h-[460px]">
-                  {radialFileActive ? (
-                    <InteractiveRadialMenu
-                      selectedFormat={radialFormat}
-                      onSelectSlice={(slice) => {
-                        setRadialFormat(slice.label);
-                        setRadialOutputSize(slice.outputSize);
-                        setRadialSpeed(slice.speed);
-                      }}
-                      inputFileName={radialInputName}
-                      inputFileSize={radialInputSize}
-                      onInstall={(fmt) => triggerDownload(fmt || radialFormat)}
-                      onFileSelect={(file) => handleRadialFileSelect(file)}
-                    />
-                  ) : (
-                    <InteractiveDropZone
-                      onFileSelect={(preset) => {
-                        setRadialInputName(preset.name);
-                        setRadialInputSize(preset.size);
-                        setRadialFormat(preset.format);
-                        setRadialOutputSize(preset.outputSize);
-                        setRadialSpeed(preset.speed);
-                        setRadialFileActive(true);
-                      }}
-                    />
-                  )}
-                </main>
-
-                {/* Window Footer Status matching Electron */}
-                <footer className="h-7 px-4 flex items-center justify-between border-t border-white/5 bg-[#0f111a]/90 text-[11px] text-white/40 select-none">
-                  <div className="flex items-center gap-1.5">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400/80" />
-                    <span>100% Offline &amp; Privat • File diproses lokal</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span>Shortcut:</span>
-                    <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white/70 font-mono text-[10px] border border-white/10">Alt+Space</kbd>
-                  </div>
-                </footer>
-              </div>
-
-              {/* Clean Result Card (Easy to Read) */}
-              <div className="bg-obsidian-950 border border-obsidian-border rounded-xl p-4 space-y-3">
-                <div className="flex items-center justify-between text-xs pb-2 border-b border-obsidian-border">
-                  <span className="text-[#8ca396]">Hasil Konversi Langsung:</span>
-                  <span className="text-[#00e575] font-semibold bg-signal-dim px-2 py-0.5 rounded border border-[#00e575]/30">
-                    ⚡ {radialSpeed} (CPU Lokal)
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between gap-4 font-mono text-xs">
-                  <div className="truncate">
-                    <span className="text-[#6e8578] block text-[10px] uppercase">Input:</span>
-                    <span className="text-white font-medium truncate">{radialInputName}</span>
-                    <span className="text-[#6e8578] ml-2">({radialInputSize})</span>
-                  </div>
-                  <span className="text-[#00e575] font-bold text-sm shrink-0">&rarr;</span>
-                  <div className="text-right truncate">
-                    <span className="text-[#00e575] block text-[10px] uppercase font-bold">Output:</span>
-                    <span className="text-white font-bold truncate">{radialBaseName}.{radialFormat.toLowerCase()}</span>
-                    <span className="text-[#00e575] ml-2">({radialOutputSize})</span>
-                  </div>
-                </div>
-
-                <div className="text-[11px] text-[#6e8578] pt-1">
-                </div>
-
-                {/* Direct Install & Download Button for Selected Format */}
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={() => triggerDownload(radialFormat)}
-                    className="w-full bg-[#00e575] hover:bg-[#19ff8c] active:scale-[0.99] !text-black font-display font-bold text-sm py-3 px-4 rounded-xl flex items-center justify-between transition-all duration-150 shadow-[0_0_20px_rgba(0,229,117,0.3)] hover:shadow-[0_0_30px_rgba(0,229,117,0.5)] cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Download className="w-4 h-4 text-black shrink-0 animate-bounce" />
-                      <span className="font-bold text-black text-left">
-                        Unduh &amp; Install OrbitDrop untuk Konversi ke {radialFormat}
-                      </span>
-                    </div>
-                    <span className="font-mono text-xs font-bold bg-black/15 text-black px-2.5 py-1 rounded-md group-hover:translate-x-1 transition shrink-0">
-                      {selectedOS === 'win' ? 'Setup .exe' : selectedOS === 'mac' ? 'Apple .dmg' : 'Source .zip'} &rarr;
-                    </span>
-                  </button>
-                </div>
-
-                {installNotice && (
-                  <div className="p-2.5 rounded-lg bg-[#00e575]/15 border border-[#00e575]/40 text-[#4ade80] text-xs font-medium flex items-center justify-between gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIsExplorerModalOpen(true)}
-                      className="flex items-center gap-2 hover:underline text-left cursor-pointer flex-1"
-                    >
-                      <FolderOpen size={15} className="text-[#00e575] shrink-0" />
-                      <span>{installNotice}</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setInstallNotice(null)}
-                      className="text-[#4ade80] hover:text-white ml-2 text-xs cursor-pointer font-bold shrink-0"
-                    >
-                      ✕
-                    </button>
-                  </div>
-                )}
-
-                <div className="text-[11px] text-[#6e8578] flex items-center justify-between pt-1">
-                  <span>✓ Bebas registrasi &bull; 100% Offline di CPU Lokal</span>
-                  <span className="text-[#8ca396]">Ukuran: ~93 MB</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PREVIEW B: VERT BATCH CONVERTER */}
-          {workbenchMode === 'vert' && <VertBatchSimulator />}
-
+        {/* Right Column: Hybrid Three.js + GSAP Interactive Tutorial Showcase */}
+        <div className="lg:col-span-6 flex flex-col justify-center">
+          <InteractiveTutorialShowcase />
         </div>
 
       </div>
