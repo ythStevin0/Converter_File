@@ -276,7 +276,7 @@ function createTray() {
   tray.setContextMenu(
     Menu.buildFromTemplate([
       { label: 'Buka OrbitDrop', click: showWindowAtCursor },
-      { label: 'Shortcut: Alt+Space', enabled: false },
+      { label: 'Pemicu: Ctrl+Drag / Alt+Space', enabled: false },
       { type: 'separator' },
       { label: 'Keluar (Quit)', click: () => app.quit() },
     ]),
@@ -402,6 +402,7 @@ if (!gotTheLock) {
     createTray();
     setupAutoUpdater();
     globalShortcut.register('Alt+Space', toggleWindow);
+    globalShortcut.register('CommandOrControl+Space', toggleWindow);
     app.on('activate', showWindowAtCursor);
 
     // If opened via File Explorer with a file argument on initial startup

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   LucideIcon,
   UploadCloud, FileText, Image as ImageIcon, FolderOpen, 
-  FileCode, Film, Music, Table, Sparkles
+  FileCode, Film, Music, Table
 } from 'lucide-react';
 import { DroppedFileInfo } from '../../types';
 import { parseDroppedFile } from '../../utils/fileHelpers';
@@ -84,27 +84,6 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
       }
     }
     fileInputRef.current?.click();
-  };
-
-  const loadPreset = async (name: string, ext: string, sizeBytes: number) => {
-    if (window.electronAPI?.loadPresetFile) {
-      try {
-        const res = await window.electronAPI.loadPresetFile(name);
-        if (res && res.path) {
-          onFileLoaded(res);
-          return;
-        }
-      } catch (err) {
-        console.warn('Electron loadPresetFile failed, falling back to mock:', err);
-      }
-    }
-
-    const mockFile = new File(['OrbitDrop sample file content'], name, {
-      type: ext === '.pdf' ? 'application/pdf' : 'image/jpeg',
-    });
-    Object.defineProperty(mockFile, 'size', { value: sizeBytes });
-    const parsed = parseDroppedFile(mockFile);
-    onFileLoaded(parsed);
   };
 
   return (
@@ -376,87 +355,10 @@ export const DropZone: React.FC<DropZoneProps> = ({ onFileLoaded }) => {
             className="text-[9px] font-mono font-bold tracking-tight mt-1.5 tabular-nums transition-colors duration-150 truncate max-w-[140px]"
             style={{ color: activeBadge ? activeBadge.color : '#86efac' }}
           >
-            {isDragOver ? 'Lepas untuk proses' : activeBadge ? activeBadge.desc : 'Klik / Taruh File'}
+            {isDragOver ? 'Lepas untuk proses' : activeBadge ? activeBadge.desc : 'Klik / Seret File (Tahan CTRL)'}
           </span>
         </div>
       </motion.div>
-
-      {/* Bottom Floating Control Bar matching Radial RingToggle style */}
-      <div className="flex items-center gap-2 p-1.5 px-3 rounded-full bg-[#0c121e]/90 border border-white/10 backdrop-blur-xl shadow-xl mt-3 select-none">
-        <span className="text-[10px] uppercase font-mono font-bold tracking-wider text-slate-400 mr-1 flex items-center gap-1">
-          <Sparkles size={11} className="text-[#00e575]" />
-          <span>Preset Uji Coba:</span>
-        </span>
-
-        {/* Preset 1: Page_001.pdf (Matching User Reference Photo) */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            loadPreset('Page_001.pdf', '.pdf', 1153433);
-          }}
-          className="px-2.5 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-white/10 hover:border-[#00e575] text-[11px] font-bold text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95 hover:scale-105"
-          title="Buka sampel Page_001.pdf (1.1 MB)"
-        >
-          <FileText size={12} className="text-[#00e575]" />
-          <span>Page_001.pdf</span>
-        </button>
-
-        {/* Preset 2: Photo_Portrait.jpg */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            loadPreset('Photo_Portrait.jpg', '.jpg', 2516582);
-          }}
-          className="px-2.5 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-white/10 hover:border-[#00e575] text-[11px] font-bold text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95 hover:scale-105"
-          title="Buka sampel Photo_Portrait.jpg (2.4 MB)"
-        >
-          <ImageIcon size={12} className="text-[#00e575]" />
-          <span>Photo.jpg</span>
-        </button>
-
-        {/* Preset 3: Sample_Video.mp4 */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            loadPreset('Sample_Video.mp4', '.mp4', 1887436);
-          }}
-          className="px-2.5 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-white/10 hover:border-[#00e575] text-[11px] font-bold text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95 hover:scale-105"
-          title="Buka sampel Video MP4 untuk tes konversi"
-        >
-          <Film size={12} className="text-[#f472b6]" />
-          <span>Video.mp4</span>
-        </button>
-
-        {/* Preset 4: Sample_Audio.mp3 */}
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
-            loadPreset('Sample_Audio.mp3', '.mp3', 327680);
-          }}
-          className="px-2.5 py-1 rounded-full bg-slate-900/90 hover:bg-slate-800 border border-white/10 hover:border-[#00e575] text-[11px] font-bold text-white flex items-center gap-1.5 transition-all shadow-sm cursor-pointer active:scale-95 hover:scale-105"
-          title="Buka sampel Audio MP3 untuk tes konversi"
-        >
-          <Music size={12} className="text-[#fb923c]" />
-          <span>Audio.mp3</span>
-        </button>
-
-        <div className="w-[1px] h-3.5 bg-white/15 mx-0.5" />
-
-        {/* File Picker Button */}
-        <button
-          type="button"
-          onClick={(e) => handleOpenFilePicker(e)}
-          className="px-3 py-1 rounded-full bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 hover:scale-105"
-          title="Pilih berkas dari komputer Anda (Semua Format)"
-        >
-          <FolderOpen size={12} />
-          <span>Pilih File</span>
-        </button>
-      </div>
     </div>
   );
 };

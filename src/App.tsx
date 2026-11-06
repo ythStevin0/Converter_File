@@ -34,11 +34,36 @@ export const App: React.FC = () => {
   const [conversionSuccess, setConversionSuccess] = useState(false);
   const [conversionError, setConversionError] = useState<string | null>(null);
   const [lastResult, setLastResult] = useState<ConversionResponse | null>(null);
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   const handleFileLoaded = (info: DroppedFileInfo) => {
     setCurrentFile(info);
     if (info.name.toLowerCase().endsWith('.locked') || info.extension.toLowerCase() === '.locked') {
       setActiveModal('unlock');
+    }
+  };
+
+  const handleOpenFilePicker = async (e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    if (window.electronAPI?.selectFile) {
+      try {
+        const fileInfo = await window.electronAPI.selectFile();
+        if (fileInfo) {
+          handleFileLoaded(fileInfo);
+          return;
+        }
+      } catch (err) {
+        console.warn('Native selectFile failed, falling back to html input:', err);
+      }
+    }
+    fileInputRef.current?.click();
+  };
+
+  const handleFileInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      const file = e.target.files[0];
+      const parsed = parseDroppedFile(file);
+      handleFileLoaded(parsed);
     }
   };
 
@@ -343,14 +368,35 @@ export const App: React.FC = () => {
         )}
       </main>
 
-      {/* 3. Floating Bottom Status matching exact User Photo */}
-      <footer className="flex items-center justify-center gap-4 mt-3 select-none text-xs">
+      {/* Hidden file input for native file selection */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        className="hidden"
+      />
+
+      {/* 3. Floating Bottom Status Bar: Pilih File + Status 100% Offline + Shortcut dalam 1 baris */}
+      <footer className="flex items-center justify-center gap-3.5 mt-2.5 select-none text-xs">
+        <button
+          type="button"
+          onClick={handleOpenFilePicker}
+          className="px-3 py-1 rounded-full bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer active:scale-95 hover:scale-105 shadow-sm"
+          title="Pilih berkas dari komputer Anda (Semua Format)"
+        >
+          <FolderOpen size={12} className="text-[#00e575]" />
+          <span>Pilih File</span>
+        </button>
         <div className="flex items-center gap-2 text-white/90">
           <span className="w-2 h-2 rounded-full bg-[#00e575] shadow-[0_0_6px_#00e575]" />
           <span>100% Offline &amp; Privat</span>
         </div>
         <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-950/60 backdrop-blur-md border border-white/10 text-white/70 shadow-md">
-          <span>Shortcut:</span>
+          <span>Pemicu:</span>
+          <kbd className="px-1.5 py-0.5 rounded bg-emerald-500/20 text-[#00e575] font-mono text-[10px] border border-emerald-500/30 font-bold shadow-xs">
+            Ctrl + Drag
+          </kbd>
+          <span className="text-white/40">/</span>
           <kbd className="px-1.5 py-0.5 rounded bg-white/15 text-white font-mono text-[10px] border border-white/20 font-semibold shadow-xs">
             Alt+Space
           </kbd>

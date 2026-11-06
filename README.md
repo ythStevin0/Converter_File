@@ -35,7 +35,7 @@ Saat pengguna menyeret sebuah file, aplikasi memunculkan menu melingkar (**Radia
 
 1. **Kondisi Siaga (Idle):** Aplikasi berjalan di latar belakang (_System Tray_ pada Windows / _Menu Bar_ pada macOS) tanpa menampilkan jendela di layar.
     
-2. **Pemicu (Trigger):** Pengguna mengklik dan menyeret file dari Desktop atau Explorer/Finder (misalnya `Page 001.pdf`) sambil menekan tombol pemicu (misal: tahan `Alt`/`Option` atau goyangkan kursor).
+2. **Pemicu (Trigger):** Pengguna mengklik dan menyeret file dari Desktop atau Explorer/Finder (misalnya `Page 001.pdf`) sambil menekan tombol pemicu (tahan `CTRL` sambil seret/arahkan berkas atau gunakan shortcut `Alt+Space`).
     
 3. **Kemunculan Menu:**
     
